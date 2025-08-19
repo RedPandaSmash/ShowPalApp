@@ -22,7 +22,7 @@ router.post("/signup", async (req, res) => {
         id: savedUser._id,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "2m" }
     );
     res.json({
       message: "User made successfully",
@@ -63,6 +63,22 @@ router.post("/login", async (req, res) => {
   try {
   } catch (error) {
     console.error(error);
+  }
+});
+
+// Route to verify JWT token validity
+router.post("/verify", (req, res) => {
+  const token = req.body.token;
+  if (!token) {
+    return res.status(400).json({ valid: false, message: "No token provided" });
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return res.status(200).json({ valid: true, decoded });
+  } catch (err) {
+    return res
+      .status(401)
+      .json({ valid: false, message: "Invalid or expired token" });
   }
 });
 
