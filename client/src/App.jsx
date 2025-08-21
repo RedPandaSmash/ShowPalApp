@@ -6,6 +6,7 @@ import Navbar from "./components/multiuse/Navbar";
 import SignupLoginButtons from "./components/multiuse/SignupLoginButtons";
 import LoggedInNavbar from "./components/multiuse/LoggedInNavbar";
 import { checkIsSignedIn } from "./utils/auth";
+import Footer from "./components/multiuse/Footer";
 
 export default function App() {
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -22,10 +23,13 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <Navbar></Navbar>
-      {isSignedIn ? <LoggedInNavbar /> : <SignupLoginButtons />}
-      <BasicRouting></BasicRouting>
-    </BrowserRouter>
+    <div style={{ background: "#0a174e", minHeight: "100vh", width: "100vw" }}>
+      <BrowserRouter>
+        <Navbar />
+        {isSignedIn ? <LoggedInNavbar /> : <SignupLoginButtons />}
+        <BasicRouting />
+        <Footer />
+      </BrowserRouter>
+    </div>
   );
 }
