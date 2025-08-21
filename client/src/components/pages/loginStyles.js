@@ -1,0 +1,58 @@
+export const loginContainer = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: "80vh",
+};
+
+export const loginHeading = {
+  color: "#fff",
+  textAlign: "center",
+  fontSize: "2rem",
+  fontWeight: "bold",
+  marginBottom: "32px",
+  marginTop: "32px",
+};
+
+export const loginForm = {
+  background: "#ffd700",
+  borderRadius: "12px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+  padding: "32px 32px 24px 32px",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  minWidth: "320px",
+  maxWidth: "400px",
+};
+
+export const loginInput = {
+  width: "100%",
+  fontSize: "1.1rem",
+  padding: "12px 16px",
+  marginBottom: "20px",
+  borderRadius: "8px",
+  border: "1px solid #ccc",
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+export const loginButton = {
+  width: "100%",
+  background: "#6c2eb6",
+  color: "#ffd700",
+  fontSize: "1.2rem",
+  fontWeight: "bold",
+  padding: "14px 0",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+  marginTop: "12px",
+  transition: "background 0.2s, color 0.2s",
+};
+
+export const loginButtonHover = {
+  background: "#4b1c7a",
+  color: "#ffd700",
+};

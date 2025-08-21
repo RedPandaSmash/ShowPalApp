@@ -1,7 +1,14 @@
-import React, { useEffect } from "react";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { checkIsSignedIn } from "../../utils/auth";
+import {
+  signupContainer,
+  signupHeading,
+  signupForm,
+  signupInput,
+  signupButton,
+  signupButtonHover,
+} from "./signupStyles";
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -43,7 +50,9 @@ export default function SignUp() {
     if (data.token) {
       localStorage.setItem("token", data.token);
       // Manually dispatch storage event for same-tab update
-      window.dispatchEvent(new StorageEvent("storage", { key: "token", newValue: data.token }));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "token", newValue: data.token })
+      );
       navigate("/");
     } else {
       alert(data.message);
@@ -55,11 +64,14 @@ export default function SignUp() {
       });
     }
   };
+  const [buttonHover, setButtonHover] = useState(false);
+
   return (
-    <div>
-      <h1>Sign Up</h1>
-      <form onSubmit={handleSubmit}>
+    <div style={signupContainer}>
+      <h1 style={signupHeading}>Sign Up</h1>
+      <form style={signupForm} onSubmit={handleSubmit}>
         <input
+          style={signupInput}
           type="text"
           name="username"
           placeholder="Username"
@@ -67,6 +79,7 @@ export default function SignUp() {
           onChange={handleChange}
         />
         <input
+          style={signupInput}
           type="email"
           name="email"
           placeholder="Email"
@@ -74,13 +87,21 @@ export default function SignUp() {
           onChange={handleChange}
         />
         <input
+          style={signupInput}
           type="password"
           name="password"
           placeholder="Password"
           value={form.password}
           onChange={handleChange}
         />
-        <button type="submit">Register</button>
+        <button
+          type="submit"
+          style={buttonHover ? { ...signupButton, ...signupButtonHover } : signupButton}
+          onMouseEnter={() => setButtonHover(true)}
+          onMouseLeave={() => setButtonHover(false)}
+        >
+          Sign Up
+        </button>
       </form>
     </div>
   );
