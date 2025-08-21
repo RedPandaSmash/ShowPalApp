@@ -44,6 +44,8 @@ router.get("/popular", async (req, res) => {
   }
 });
 
+//placeholder
+
 export default router;
 // https://api.themoviedb.org/3/tv/popular
 // https://developer.themoviedb.org/reference/tv-series-popular-list
