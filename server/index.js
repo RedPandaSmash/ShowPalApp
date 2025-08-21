@@ -5,6 +5,7 @@ import userRoutes from "./routes/user.route.js";
 // import roomRoutes from "./routes/room.route.js";
 // import messageRoutes from "./routes/message.route.js";
 import "dotenv/config";
+import showRoutes from "./routes/show.route.js";
 
 const PORT = process.env.PORT || 8080;
 const MONGO = process.env.MONGO;
@@ -36,6 +37,9 @@ app.get("/api/health", (req, res) => {
 
 // use user routes
 app.use("/api/users", userRoutes);
+
+// use show routes
+app.use("/api/shows", showRoutes);
 
 app.get("/api/users", (req, res) => {
   res.send(`${User}`);
