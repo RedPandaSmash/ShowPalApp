@@ -14,3 +14,6 @@ Verify that the token in local storage is valid on the front end (could be repla
 /verfiy
 
 # ShowRoutes
+
+Shows (https://developer.themoviedb.org/reference/discover-tv)
+

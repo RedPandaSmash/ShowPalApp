@@ -37,6 +37,10 @@ app.get("/api/health", (req, res) => {
 // use user routes
 app.use("/api/users", userRoutes);
 
+app.get("/api/users", (req, res) => {
+  res.send(`${User}`);
+});
+
 app.listen(PORT, () => {
   console.log(`Server is live`);
 });
