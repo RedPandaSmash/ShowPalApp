@@ -7,6 +7,21 @@ const router = Router();
 
 router.post("/signup", async (req, res) => {
   const { email, password, username } = req.body;
+  const takenUser = await User.findOne({ username });
+  const takenEmail = await User.findOne({ email });
+
+  if (takenUser) {
+    console.log("That username is already.");
+    res.json({
+      message: "That username is already taken.",
+    });
+  }
+  if (takenEmail) {
+    console.log("That email is already being used.");
+    res.json({
+      message: "That email is already being used.",
+    });
+  }
 
   try {
     const newUser = new User({
@@ -22,7 +37,7 @@ router.post("/signup", async (req, res) => {
         id: savedUser._id,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "2m" }
+      { expiresIn: "3h" }
     );
     res.json({
       message: "User made successfully",
@@ -52,7 +67,7 @@ router.post("/login", async (req, res) => {
       id: foundUser._id,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "2m" }
+    { expiresIn: "3h" }
   );
 
   res.status(200).json({
