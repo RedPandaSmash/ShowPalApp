@@ -1,7 +1,14 @@
-import React, { useEffect } from "react";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { checkIsSignedIn } from "../../utils/auth";
+import {
+  loginContainer,
+  loginHeading,
+  loginForm,
+  loginInput,
+  loginButton,
+  loginButtonHover,
+} from "./loginStyles";
 
 export default function LogIn() {
   const navigate = useNavigate();
@@ -53,11 +60,14 @@ export default function LogIn() {
       });
     }
   };
+  const [buttonHover, setButtonHover] = useState(false);
+
   return (
-    <div>
-      <h1>Log In</h1>
-      <form onSubmit={handleSubmit}>
+    <div style={loginContainer}>
+      <h1 style={loginHeading}>Log In</h1>
+      <form style={loginForm} onSubmit={handleSubmit}>
         <input
+          style={loginInput}
           type="email"
           name="email"
           placeholder="Email"
@@ -65,13 +75,21 @@ export default function LogIn() {
           onChange={handleChange}
         />
         <input
+          style={loginInput}
           type="password"
           name="password"
           placeholder="Password"
           value={form.password}
           onChange={handleChange}
         />
-        <button type="submit">Log In</button>
+        <button
+          type="submit"
+          style={buttonHover ? { ...loginButton, ...loginButtonHover } : loginButton}
+          onMouseEnter={() => setButtonHover(true)}
+          onMouseLeave={() => setButtonHover(false)}
+        >
+          Log In
+        </button>
       </form>
     </div>
   );
