@@ -1,6 +1,8 @@
 import { Router } from "express";
 
 const router = Router();
+const token = process.env.TMDB_READ_ACCESS_TOKEN;
+const apiKey = process.env.TMDB_API_KEY;
 
 // GET /api/shows/popular?page=1&language=en-US
 router.get("/popular", async (req, res) => {
@@ -9,10 +11,8 @@ router.get("/popular", async (req, res) => {
   try {
     const url = new URL("https://api.themoviedb.org/3/tv/popular");
     url.searchParams.set("page", String(page));
+    //Translates the description to the language set
     if (language) url.searchParams.set("language", language);
-
-    const token = process.env.TMDB_READ_ACCESS_TOKEN;
-    const apiKey = process.env.TMDB_API_KEY;
 
     const headers = {
       "Content-Type": "application/json",
@@ -44,7 +44,55 @@ router.get("/popular", async (req, res) => {
   }
 });
 
-//placeholder
+// GET /api/shows/genre?genre=18&page=1&language=en-US
+router.get("/genre", async (req, res) => {
+  const { genre, page = 1, language } = req.query;
+
+  if (!genre) {
+    return res
+      .status(400)
+      .json({ error: "Missing required 'genre' parameter" });
+  }
+
+  try {
+    const url = new URL("https://api.themoviedb.org/3/discover/tv");
+    url.searchParams.set("with_genres", genre);
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("sort_by", "popularity.desc");
+    url.searchParams.set("include_adult", "false");
+    url.searchParams.set("include_null_first_air_dates", "false");
+    if (language) url.searchParams.set("language", language);
+
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    } else if (apiKey) {
+      url.searchParams.set("api_key", apiKey);
+    } else {
+      return res.status(500).json({ error: "TMDB credentials not configured" });
+    }
+
+    const resp = await fetch(url.toString(), { headers });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      return res
+        .status(resp.status)
+        .json({ error: "TMDB error", details: text });
+    }
+
+    const data = await resp.json();
+    return res.json(data);
+  } catch (err) {
+    console.error("Error fetching TMDB shows by genre:", err);
+    return res.status(500).json({ error: "internal server error" });
+  }
+});
+
+//get show by ID
 
 export default router;
 // https://api.themoviedb.org/3/tv/popular
