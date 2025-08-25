@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
+import { navContainer, navList } from "./navbarStyles";
 import {
-  navContainer,
-  navList,
-  navItem,
-  navItemHover,
-  navItemActive,
-} from "./navbarStyles";
+  interactiveItem,
+  interactiveHover,
+  interactiveActive,
+} from "./interactiveStyles";
 
 export default function SignupLoginButtons() {
   const navigate = useNavigate();
@@ -23,9 +22,9 @@ export default function SignupLoginButtons() {
           <li
             key={item.label}
             style={{
-              ...navItem,
-              ...(hovered === idx ? navItemHover : {}),
-              ...(active === idx ? navItemActive : {}),
+              ...interactiveItem,
+              ...(hovered === idx ? interactiveHover : {}),
+              ...(active === idx ? interactiveActive : {}),
             }}
             onClick={() => navigate(item.path)}
             onMouseEnter={() => setHovered(idx)}

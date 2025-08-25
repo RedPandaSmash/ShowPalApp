@@ -1,8 +1,8 @@
 export const footerContainer = {
-  position: "fixed",
+  position: "static",
   left: 0,
   bottom: 0,
-  width: "100vw",
+  width: "100%",
   color: "#fff",
   display: "flex",
   flexDirection: "row",
@@ -16,10 +16,15 @@ export const footerContainer = {
 export const footerItem = {
   margin: "0 16px",
   cursor: "pointer",
-  transition: "color 0.2s",
+  transition: "background 0.15s, color 0.15s",
   color: "#fff",
+  padding: "6px 10px", // keep padding constant so hover doesn't shift layout
+  background: "transparent",
+  borderRadius: 6,
+  display: "inline-block",
 };
 
 export const footerItemHover = {
   color: "#6c2eb6", // royal purple
+  background: "#ffd700", // yellow box
 };

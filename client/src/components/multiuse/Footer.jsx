@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { footerContainer, footerItem, footerItemHover } from "./footerStyles";
+import { footerContainer } from "./footerStyles";
+import { interactiveItem, interactiveHover } from "./interactiveStyles";
 
 export default function Footer() {
   const [hovered, setHovered] = useState(null);
@@ -15,8 +16,10 @@ export default function Footer() {
         <span
           key={item.label}
           style={{
-            ...footerItem,
-            ...(hovered === idx ? footerItemHover : {}),
+            ...interactiveItem,
+            ...(hovered === idx ? interactiveHover : {}),
+            color:
+              hovered === idx ? interactiveHover.color : interactiveItem.color,
           }}
           onMouseEnter={() => setHovered(idx)}
           onMouseLeave={() => setHovered(null)}
