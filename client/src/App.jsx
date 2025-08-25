@@ -27,7 +27,9 @@ export default function App() {
       <BrowserRouter>
         <Navbar />
         {isSignedIn ? <LoggedInNavbar /> : <SignupLoginButtons />}
-        <BasicRouting />
+        <div style={{ paddingBottom: 140 }}>
+          <BasicRouting />
+        </div>
         <Footer />
       </BrowserRouter>
     </div>

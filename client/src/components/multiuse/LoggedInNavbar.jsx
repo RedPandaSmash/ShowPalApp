@@ -1,11 +1,10 @@
 import React, { useState } from "react";
+import { navContainer, navList } from "./navbarStyles";
 import {
-  navContainer,
-  navList,
-  navItem,
-  navItemHover,
-  navItemActive,
-} from "./navbarStyles";
+  interactiveItem,
+  interactiveHover,
+  interactiveActive,
+} from "./interactiveStyles";
 
 export default function LoggedInNavbar() {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -25,9 +24,9 @@ export default function LoggedInNavbar() {
       <ul style={navList}>
         <li
           style={{
-            ...navItem,
-            ...(hovered ? navItemHover : {}),
-            ...(active ? navItemActive : {}),
+            ...interactiveItem,
+            ...(hovered ? interactiveHover : {}),
+            ...(active ? interactiveActive : {}),
           }}
           onClick={() => setShowConfirm(true)}
           onMouseEnter={() => setHovered(true)}
@@ -64,11 +63,19 @@ export default function LoggedInNavbar() {
             <p>Are you sure you want to log out?</p>
             <button
               onClick={handleLogout}
-              style={{ ...navItem, marginRight: 8 }}
+              style={{
+                ...interactiveItem,
+                marginRight: 8,
+                color: "#000",
+                background: "#ffd700",
+              }}
             >
               Log Out
             </button>
-            <button onClick={() => setShowConfirm(false)} style={navItem}>
+            <button
+              onClick={() => setShowConfirm(false)}
+              style={{ ...interactiveItem, color: "#000" }}
+            >
               Cancel
             </button>
           </div>
