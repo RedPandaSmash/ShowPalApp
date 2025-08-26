@@ -131,6 +131,37 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// GET /api/shows/:id/season/:seasonNumber
+router.get("/:id/season/:seasonNumber", async (req, res) => {
+  const { id, seasonNumber } = req.params;
+  if (!id || !seasonNumber) return res.status(400).json({ error: 'Missing id or season number' });
+
+  try {
+    const url = new URL(`https://api.themoviedb.org/3/tv/${encodeURIComponent(id)}/season/${encodeURIComponent(seasonNumber)}`);
+    const headers = { 'Content-Type': 'application/json' };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else if (apiKey) {
+      url.searchParams.set('api_key', apiKey);
+    } else {
+      return res.status(500).json({ error: 'TMDB credentials not configured' });
+    }
+
+    const resp = await fetch(url.toString(), { headers });
+    if (!resp.ok) {
+      const text = await resp.text();
+      return res.status(resp.status).json({ error: 'TMDB error', details: text });
+    }
+
+    const data = await resp.json();
+    return res.json(data);
+  } catch (err) {
+    console.error('Error fetching TMDB season details:', err);
+    return res.status(500).json({ error: 'internal server error' });
+  }
+});
+
 export default router;
 // https://api.themoviedb.org/3/tv/popular
 // https://developer.themoviedb.org/reference/tv-series-popular-list
