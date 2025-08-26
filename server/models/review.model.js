@@ -2,12 +2,12 @@ import { Schema, model } from "mongoose";
 
 const reviewSchema = new Schema({
   showID: {
-    type: Schema.Types.ObjectId,
+    type: "string",
     ref: "Show",
     required: true,
   },
   userID: {
-    type: Schema.Types.ObjectId,
+    type: "string",
     ref: "User",
     required: true,
   },

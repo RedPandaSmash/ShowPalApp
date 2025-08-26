@@ -1,5 +1,5 @@
 import { Router } from "express";
-import Review from "../models/Review.js";
+import Review from "../models/review.model.js";
 import User from "../models/user.model.js";
 import validateSession from "../middleware/validatesession.js";
 
@@ -11,15 +11,27 @@ router.post("/", validateSession, async (req, res) => {
 
   try {
     const userID = req.user._id;
+
     const newReview = new Review({ showID, userID, rating, comment });
 
-    await newReview.save();
+    const savedReview = await newReview.save();
 
-    return res.status(201).json(newReview);
+    return res.status(201).json(savedReview);
   } catch (err) {
     console.error("Error creating review:", err);
     return res.status(500).json({ error: "internal server error" });
   }
 });
 
+router.get("/", async (req, res) => {
+  try {
+    const reviews = await Review.find();
+    res.status(200).json({
+      reviews: reviews,
+      message: "review found",
+    });
+  } catch (error) {
+    console.error(error);
+  }
+});
 export default router;
