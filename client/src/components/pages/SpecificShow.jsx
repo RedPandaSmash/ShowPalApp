@@ -58,14 +58,16 @@ export default function SpecificShow() {
       }
     };
 
-    if (show && typeof selectedSeason === 'number') {
+    if (show && typeof selectedSeason === "number") {
       fetchSeason(selectedSeason);
     } else {
       // clear season data if show not loaded
       setSeasonData(null);
     }
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [show, selectedSeason, showID]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading show...</div>;
@@ -76,11 +78,12 @@ export default function SpecificShow() {
     ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
     : null;
 
-  const genres = Array.isArray(show.genres) ? show.genres.map((g) => g.name).filter(Boolean) : [];
+  const genres = Array.isArray(show.genres)
+    ? show.genres.map((g) => g.name).filter(Boolean)
+    : [];
   const languages = Array.isArray(show.spoken_languages)
     ? show.spoken_languages.map((l) => l.english_name || l.name).filter(Boolean)
     : [];
-
 
   return (
     <section style={{ padding: 24, color: "#fff" }}>
@@ -160,12 +163,23 @@ export default function SpecificShow() {
                   {seasonData.poster_path && (
                     <img
                       src={`https://image.tmdb.org/t/p/w300${seasonData.poster_path}`}
-                      alt={seasonData.name || `Season ${seasonData.season_number}`}
-                      style={{ width: 180, borderRadius: 6, display: 'block', marginBottom: 8 }}
+                      alt={
+                        seasonData.name || `Season ${seasonData.season_number}`
+                      }
+                      style={{
+                        width: 180,
+                        borderRadius: 6,
+                        display: "block",
+                        marginBottom: 8,
+                      }}
                     />
                   )}
-                  {seasonData.name && <div><strong>{seasonData.name}</strong></div>}
-                  {typeof seasonData.episode_count === 'number' && (
+                  {seasonData.name && (
+                    <div>
+                      <strong>{seasonData.name}</strong>
+                    </div>
+                  )}
+                  {typeof seasonData.episode_count === "number" && (
                     <div>Episodes: {seasonData.episode_count}</div>
                   )}
                   {seasonData.overview && <p>{seasonData.overview}</p>}
@@ -175,6 +189,160 @@ export default function SpecificShow() {
           )}
         </div>
       </div>
+      {/* Episodes section for selected season */}
+      <div style={{ ...popularShowsSection, marginTop: 20, color: "#000" }}>
+        <h3 style={{ marginTop: 0 }}>Episodes - Season {selectedSeason}</h3>
+        {seasonLoading && <div>Loading episodes...</div>}
+        {seasonError && <div>Error: {seasonError}</div>}
+        {seasonData && Array.isArray(seasonData.episodes) && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(1, 1fr)",
+              gap: 12,
+            }}
+          >
+            {seasonData.episodes.map((ep) => (
+              <div
+                key={ep.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "60px 1fr 200px 140px",
+                  border: "1px solid #000",
+                }}
+              >
+                <div style={{ borderRight: "1px solid #000", padding: 8 }}>
+                  <strong>#{ep.episode_number}</strong>
+                </div>
+                <div style={{ borderRight: "1px solid #000", padding: 8 }}>
+                  <strong>{ep.name}</strong>
+                  <div>{ep.overview}</div>
+                </div>
+                <div style={{ borderRight: "1px solid #000", padding: 8 }}>
+                  {/* placeholder for any extra field */}
+                </div>
+                <div style={{ padding: 8 }}>{ep.air_date || "N/A"}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Reviews section */}
+      <div style={{ ...popularShowsSection, marginTop: 20, color: "#000" }}>
+        <h3 style={{ marginTop: 0 }}>Reviews</h3>
+        <ReviewForm showID={showID} onNewReview={() => fetchReviews()} />
+        <div style={{ marginTop: 12 }}>
+          <h4>Existing reviews</h4>
+          <ReviewList showID={showID} />
+        </div>
+      </div>
     </section>
+  );
+}
+
+function ReviewForm({ showID, onNewReview }) {
+  const [rating, setRating] = React.useState(5);
+  const [comment, setComment] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: token },
+        body: JSON.stringify({ showID, rating, comment }),
+      });
+      if (!res.ok) throw new Error("Failed to post review");
+      setComment("");
+      setRating(5);
+      if (onNewReview) onNewReview();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to post review (are you logged in?)");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      style={{ display: "flex", gap: 8, alignItems: "center" }}
+    >
+      <label>
+        Rating:
+        <input
+          type="number"
+          min={1}
+          max={10}
+          value={rating}
+          onChange={(e) => setRating(Number(e.target.value))}
+          style={{ width: 60, marginLeft: 8 }}
+        />
+      </label>
+      <label style={{ flex: 1 }}>
+        Comment:
+        <input
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          style={{ width: "100%", marginLeft: 8 }}
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={submitting}
+        style={{ padding: "8px 12px" }}
+      >
+        {submitting ? "Posting..." : "Submit"}
+      </button>
+    </form>
+  );
+}
+
+function ReviewList({ showID }) {
+  const [reviews, setReviews] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetch = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/reviews");
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      // server currently returns all reviews; filter client-side by showID
+      const list = Array.isArray(data.reviews)
+        ? data.reviews.filter((r) => String(r.showID) === String(showID))
+        : [];
+      setReviews(list);
+    } catch (err) {
+      console.error(err);
+      setReviews([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetch();
+  }, [showID]);
+
+  if (loading) return <div>Loading reviews...</div>;
+  if (!reviews.length) return <div>No reviews yet.</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {reviews.map((r) => (
+        <div key={r._id} style={{ border: "1px solid #ccc", padding: 8 }}>
+          <div>
+            <strong>Rating:</strong> {r.rating}
+          </div>
+          <div>{r.comment}</div>
+        </div>
+      ))}
+    </div>
   );
 }

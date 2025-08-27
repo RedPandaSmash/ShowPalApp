@@ -22,12 +22,21 @@ export default function Shows() {
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (!mounted) return;
-        // TMDB returns results array
-        const items = Array.isArray(data.results)
-          ? data.results.slice(0, 16)
-          : [];
+        // TMDB returns results array and total_pages
+        const total =
+          typeof data.total_pages === "number" ? data.total_pages : totalPages;
         if (typeof data.total_pages === "number")
           setTotalPages(data.total_pages);
+
+        // If requested page exceeds TMDB's total, clamp and re-request by updating page state.
+        if (typeof data.total_pages === "number" && page > data.total_pages) {
+          // setPage will trigger a re-fetch with a valid page value
+          setPage(data.total_pages);
+          return;
+        }
+
+        // Use whatever results the API returned for this page so front-end pages map 1:1 with API pages
+        const items = Array.isArray(data.results) ? data.results : [];
         setShows(items);
       } catch (err) {
         console.error(err);

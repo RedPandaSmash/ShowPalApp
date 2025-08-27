@@ -58,3 +58,7 @@ Comments in this context are the same thing as replies in the reviews section, d
 # AuthRoutes
 
 To be built out further later. This section will include all the things that users should be able to do when they are logged in (authenticated, hence the name): i.e. CRUD methods for their own reviews, CRUD methods for their own lists, following and unfollowing other users
+
+# Known Issues
+
+The route to fetch popular shows only works until page 500. pages 501 to 10179 fail to fetch any objects representing shows. This is a problem with TMDB and not something that can be fixed, therefore, results on the shows page must be limited to 500 pages.
