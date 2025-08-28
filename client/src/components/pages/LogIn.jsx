@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { checkIsSignedIn } from "../../utils/auth";
+import { useAuth } from '../../context/AuthContext';
 import {
   loginContainer,
   loginHeading,
@@ -13,10 +13,9 @@ import {
 export default function LogIn() {
   const navigate = useNavigate();
 
+  const { refresh } = useAuth();
   useEffect(() => {
-    checkIsSignedIn().then((signedIn) => {
-      if (signedIn) navigate("/");
-    });
+    refresh().then(() => {});
   }, [navigate]);
 
   const [form, setForm] = useState({

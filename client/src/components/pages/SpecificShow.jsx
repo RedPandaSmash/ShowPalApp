@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { popularShowsSection } from "./homeStyles";
+import { useAuth } from '../../context/AuthContext';
+import { interactiveHover, interactiveButton } from '../multiuse/interactiveStyles';
 
 export default function SpecificShow() {
   const { showID } = useParams();
@@ -12,6 +14,48 @@ export default function SpecificShow() {
   const [seasonData, setSeasonData] = useState(null);
   const [seasonLoading, setSeasonLoading] = useState(false);
   const [seasonError, setSeasonError] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const { isSignedIn, userId, refresh } = useAuth();
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  useEffect(() => {
+    setCurrentUserId(userId);
+  }, [userId]);
+
+  // fetch reviews for this show
+  const fetchReviews = async () => {
+    setReviewsLoading(true);
+    try {
+  const res = await fetch(`http://localhost:8080/api/reviews?showID=${encodeURIComponent(showID)}`);
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('fetchReviews failed', res.status, text);
+        setReviews([]);
+        return;
+      }
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('fetchReviews unexpected content-type', contentType, text);
+        setReviews([]);
+        return;
+      }
+      const data = await res.json();
+      const list = Array.isArray(data.reviews) ? data.reviews : [];
+      setReviews(list);
+    } catch (err) {
+      console.error(err);
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReviews();
+  }, [showID]);
+
   useEffect(() => {
     let mounted = true;
     const fetchShow = async () => {
@@ -107,7 +151,18 @@ export default function SpecificShow() {
           />
         ) : null}
         <div style={{ textAlign: "left" }}>
-          <h1 style={{ marginTop: 0 }}>{show.name || show.original_name}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h1 style={{ marginTop: 0 }}>{show.name || show.original_name}</h1>
+            <div style={{ fontSize: '1rem', fontWeight: '700', color: '#e5b800' }}>
+              {reviews && reviews.length
+                ? `${(
+                    reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) /
+                    reviews.length
+                  ).toFixed(2)} (${reviews.length})`
+                : <span style={{ color: '#000' }}>(This show does not have any reviews yet.)</span> }
+            </div>
+          </div>
+
           <p>{show.overview || "No description available."}</p>
 
           {genres.length > 0 && (
@@ -207,7 +262,7 @@ export default function SpecificShow() {
                 key={ep.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "60px 1fr 200px 140px",
+                  gridTemplateColumns: "60px 240px 1fr 140px",
                   border: "1px solid #000",
                 }}
               >
@@ -216,11 +271,8 @@ export default function SpecificShow() {
                 </div>
                 <div style={{ borderRight: "1px solid #000", padding: 8 }}>
                   <strong>{ep.name}</strong>
-                  <div>{ep.overview}</div>
                 </div>
-                <div style={{ borderRight: "1px solid #000", padding: 8 }}>
-                  {/* placeholder for any extra field */}
-                </div>
+                <div style={{ borderRight: "1px solid #000", padding: 8 }}>{ep.overview}</div>
                 <div style={{ padding: 8 }}>{ep.air_date || "N/A"}</div>
               </div>
             ))}
@@ -229,120 +281,212 @@ export default function SpecificShow() {
       </div>
 
       {/* Reviews section */}
-      <div style={{ ...popularShowsSection, marginTop: 20, color: "#000" }}>
+      <div style={{ ...popularShowsSection, marginTop: 20, color: "#000", background: '#fff4b5' }}>
         <h3 style={{ marginTop: 0 }}>Reviews</h3>
-        <ReviewForm showID={showID} onNewReview={() => fetchReviews()} />
-        <div style={{ marginTop: 12 }}>
-          <h4>Existing reviews</h4>
-          <ReviewList showID={showID} />
+        <div style={{ padding: 12 }}>
+          {isSignedIn ? (
+            <ReviewForm
+              showID={showID}
+              onNewReview={() => fetchReviews()}
+              refreshAuth={refresh}
+            />
+          ) : (
+            <div style={{ marginBottom: 12 }}>
+              <em>Please sign in to leave a review.</em>
+            </div>
+          )}
+
+          <div style={{ marginTop: 12 }}>
+            {reviewsLoading ? (
+              <div>Loading reviews...</div>
+            ) : reviews.length === 0 ? (
+              <div>No one's left a review yet. You could be the first!</div>
+            ) : (
+              <ReviewList
+                reviews={reviews}
+                currentUserId={currentUserId}
+                onRefresh={() => fetchReviews()}
+              />
+            )}
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function ReviewForm({ showID, onNewReview }) {
+function ReviewForm({ showID, onNewReview, refreshAuth }) {
   const [rating, setRating] = React.useState(5);
   const [comment, setComment] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
+
+  // 5-star UI with half-star detection
+  const [hoverValue, setHoverValue] = React.useState(null);
+  const starRef = React.useRef(null);
+
+  const handleStarMouseMove = (e, index) => {
+    // index is 0..4
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const half = x < rect.width / 2 ? 0.5 : 1;
+    const value = index + half;
+    setHoverValue(value);
+  };
+
+  const handleStarClick = (e, index) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const half = x < rect.width / 2 ? 0.5 : 1;
+    const value = index + half;
+    // enforce min rating of 1
+    const final = Math.max(1, value);
+    setRating(final);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("/api/reviews", {
+  const res = await fetch("http://localhost:8080/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token },
         body: JSON.stringify({ showID, rating, comment }),
       });
-      if (!res.ok) throw new Error("Failed to post review");
+      if (res.status === 401) {
+        alert(
+          "You may have been timed out. Please, copy the text for your review so it is not lost, reload this page, making sure you're logged in, and try again."
+        );
+        if (refreshAuth) refreshAuth();
+        return;
+      }
+      if (!res.ok) {
+        // Generic failure: show requested timeout instruction to minimize data loss
+        alert(
+          "You may have been timed out. Please, copy the text for your review so it is not lost, reload this page, making sure you're logged in, and try again."
+        );
+        return;
+      }
       setComment("");
       setRating(5);
       if (onNewReview) onNewReview();
     } catch (err) {
       console.error(err);
-      alert("Failed to post review (are you logged in?)");
+      alert(
+        "Failed to post review. If you believe you're signed in, try copying your text, reloading the page and submitting again."
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{ display: "flex", gap: 8, alignItems: "center" }}
-    >
-      <label>
-        Rating:
-        <input
-          type="number"
-          min={1}
-          max={10}
-          value={rating}
-          onChange={(e) => setRating(Number(e.target.value))}
-          style={{ width: 60, marginLeft: 8 }}
-        />
-      </label>
-      <label style={{ flex: 1 }}>
-        Comment:
-        <input
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div>
+        <strong>Be a Pal 'n' leave your opinion on the show!</strong>
+      </div>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        {/* render 5 stars, each supports half-star detection */}
+        {Array.from({ length: 5 }).map((_, i) => {
+          const fullFilled = rating >= i + 1;
+          const halfFilled = rating >= i + 0.5 && rating < i + 1;
+          const hoverFull = hoverValue >= i + 1;
+          const hoverHalf = hoverValue >= i + 0.5 && hoverValue < i + 1;
+          const color = hoverValue != null ? (hoverFull || hoverHalf ? interactiveHover.color : '#ccc') : (fullFilled || halfFilled ? '#e5b800' : '#ccc');
+          return (
+            <div
+              key={i}
+              onMouseMove={(e) => handleStarMouseMove(e, i)}
+              onMouseLeave={() => setHoverValue(null)}
+              onClick={(e) => handleStarClick(e, i)}
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'pointer', fontSize: 22, color, padding: '0 2px', userSelect: 'none' }}
+              aria-label={`Rate ${i + 1} stars or half`}
+            >
+              ★
+            </div>
+          );
+        })}
+        <div style={{ marginLeft: 8 }}>{rating}</div>
+      </div>
+
+      <label style={{ display: 'flex', flexDirection: 'column' }}>
+        Comment (max 500 chars):
+        <textarea
+          maxLength={500}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          style={{ width: "100%", marginLeft: 8 }}
+          style={{ width: '100%', minHeight: 80, marginTop: 6 }}
         />
       </label>
-      <button
-        type="submit"
-        disabled={submitting}
-        style={{ padding: "8px 12px" }}
-      >
-        {submitting ? "Posting..." : "Submit"}
-      </button>
+
+      <div>
+        <button type="submit" disabled={submitting} style={{ ...interactiveButton, cursor: 'pointer' }}>
+          {submitting ? 'Posting...' : 'Submit'}
+        </button>
+      </div>
     </form>
   );
 }
 
-function ReviewList({ showID }) {
-  const [reviews, setReviews] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
+function ReviewList({ reviews, currentUserId, onRefresh }) {
+  const [loading, setLoading] = React.useState(false);
+  const [localReviews, setLocalReviews] = React.useState(reviews || []);
 
-  const fetch = async () => {
-    setLoading(true);
+  React.useEffect(() => setLocalReviews(reviews || []), [reviews]);
+
+  const toggleLike = async (reviewId) => {
     try {
-      const res = await fetch("/api/reviews");
-      if (!res.ok) throw new Error("Failed");
-      const data = await res.json();
-      // server currently returns all reviews; filter client-side by showID
-      const list = Array.isArray(data.reviews)
-        ? data.reviews.filter((r) => String(r.showID) === String(showID))
-        : [];
-      setReviews(list);
+      // optimistic update
+      setLocalReviews((cur) =>
+        cur.map((r) => {
+          if (String(r._id) !== String(reviewId)) return r;
+          const userHasLiked = Array.isArray(r.likedBy) && currentUserId && r.likedBy.some(id => String(id) === String(currentUserId));
+          const newLikedBy = userHasLiked ? r.likedBy.filter(id => String(id) !== String(currentUserId)) : [...(r.likedBy || []), currentUserId];
+          const newLikes = userHasLiked ? Math.max(0, (r.likes || 0) - 1) : (r.likes || 0) + 1;
+          return { ...r, likedBy: newLikedBy, likes: newLikes };
+        })
+      );
+
+      const token = localStorage.getItem('token');
+  const res = await fetch(`http://localhost:8080/api/reviews/${reviewId}/like`, {
+        method: 'POST',
+        headers: { Authorization: token },
+      });
+      if (!res.ok) throw new Error('failed to toggle like');
+      // update from server response
+      const updated = await res.json();
+      setLocalReviews((cur) => cur.map((r) => (String(r._id) === String(updated._id) ? updated : r)));
     } catch (err) {
       console.error(err);
-      setReviews([]);
-    } finally {
-      setLoading(false);
+      alert('Failed to like/unlike review. Make sure you are logged in.');
+      if (onRefresh) onRefresh();
     }
   };
 
-  React.useEffect(() => {
-    fetch();
-  }, [showID]);
-
-  if (loading) return <div>Loading reviews...</div>;
-  if (!reviews.length) return <div>No reviews yet.</div>;
+  if (!localReviews || localReviews.length === 0) return null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {reviews.map((r) => (
-        <div key={r._id} style={{ border: "1px solid #ccc", padding: 8 }}>
-          <div>
-            <strong>Rating:</strong> {r.rating}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {localReviews.map((r) => {
+        const liked = Array.isArray(r.likedBy) && currentUserId
+          ? r.likedBy.some((id) => String(id) === String(currentUserId))
+          : false;
+        return (
+          <div key={r._id} style={{ border: '1px solid #ccc', padding: 8, background: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div><strong>Rating:</strong> {r.rating}</div>
+              <div>
+                <button onClick={() => toggleLike(r._id)} style={{ marginRight: 8, ...interactiveButton }}>
+                  {liked ? '♥' : '♡'} {r.likes || 0}
+                </button>
+              </div>
+            </div>
+            <div style={{ marginTop: 6 }}>{r.comment}</div>
           </div>
-          <div>{r.comment}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

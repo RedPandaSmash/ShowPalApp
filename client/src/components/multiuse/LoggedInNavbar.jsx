@@ -60,7 +60,7 @@ export default function LoggedInNavbar() {
               boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
             }}
           >
-            <p>Are you sure you want to log out?</p>
+            <p style={{ color: '#000' }}>Are you sure you want to log out?</p>
             <button
               onClick={handleLogout}
               style={{
