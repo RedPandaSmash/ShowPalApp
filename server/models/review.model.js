@@ -2,12 +2,11 @@ import { Schema, model } from "mongoose";
 
 const reviewSchema = new Schema({
   showID: {
-    type: "string",
-    ref: "Show",
+    type: String,
     required: true,
   },
   userID: {
-    type: "string",
+    type: Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
@@ -21,6 +20,11 @@ const reviewSchema = new Schema({
     type: String,
     maxlength: 500,
   },
+  likes: {
+    type: Number,
+    default: 0,
+  },
+  likedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
 });
 
 export default model("Review", reviewSchema);

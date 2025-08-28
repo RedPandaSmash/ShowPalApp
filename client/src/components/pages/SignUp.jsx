@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { checkIsSignedIn } from "../../utils/auth";
+import { useAuth } from '../../context/AuthContext';
 import {
   signupContainer,
   signupHeading,
@@ -13,9 +13,10 @@ import {
 export default function SignUp() {
   const navigate = useNavigate();
 
+  const { refresh } = useAuth();
   useEffect(() => {
-    checkIsSignedIn().then((signedIn) => {
-      if (signedIn) navigate("/");
+    refresh().then(() => {
+      // refresh updates auth state; redirect if already signed in will be handled by App nav
     });
   }, [navigate]);
 
