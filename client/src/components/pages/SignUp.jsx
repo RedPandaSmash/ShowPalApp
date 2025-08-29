@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from "../../context/AuthContext";
 import {
   signupContainer,
   signupHeading,
@@ -97,7 +97,11 @@ export default function SignUp() {
         />
         <button
           type="submit"
-          style={buttonHover ? { ...signupButton, ...signupButtonHover } : signupButton}
+          style={
+            buttonHover
+              ? { ...signupButton, ...signupButtonHover }
+              : signupButton
+          }
           onMouseEnter={() => setButtonHover(true)}
           onMouseLeave={() => setButtonHover(false)}
         >

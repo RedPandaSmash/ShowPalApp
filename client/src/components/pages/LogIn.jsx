@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from "../../context/AuthContext";
 import {
   loginContainer,
   loginHeading,
@@ -48,7 +48,9 @@ export default function LogIn() {
     if (data.token) {
       localStorage.setItem("token", data.token);
       // Manually dispatch storage event for same-tab update
-      window.dispatchEvent(new StorageEvent("storage", { key: "token", newValue: data.token }));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "token", newValue: data.token })
+      );
       navigate("/");
     } else {
       alert(data.message);
@@ -83,7 +85,9 @@ export default function LogIn() {
         />
         <button
           type="submit"
-          style={buttonHover ? { ...loginButton, ...loginButtonHover } : loginButton}
+          style={
+            buttonHover ? { ...loginButton, ...loginButtonHover } : loginButton
+          }
           onMouseEnter={() => setButtonHover(true)}
           onMouseLeave={() => setButtonHover(false)}
         >
