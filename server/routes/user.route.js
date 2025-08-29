@@ -97,4 +97,18 @@ router.post("/verify", (req, res) => {
   }
 });
 
+// Return only the username for a given user ID. No sensitive fields.
+router.get('/:id/username', async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: 'No id provided' });
+    const user = await User.findById(id).select('username').exec();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    return res.status(200).json({ username: user.username });
+  } catch (err) {
+    console.error('username lookup error', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;

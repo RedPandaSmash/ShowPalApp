@@ -24,7 +24,7 @@ const reviewSchema = new Schema({
     type: Number,
     default: 0,
   },
-  likedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  likedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
 });
 
 export default model("Review", reviewSchema);

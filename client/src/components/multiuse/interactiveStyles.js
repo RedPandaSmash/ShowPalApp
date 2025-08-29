@@ -32,3 +32,14 @@ export const interactiveButton = {
   border: "none",
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
 };
+
+// Star rendering helper styles
+export const starBase = {
+  display: 'inline-block',
+  fontSize: 22,
+  lineHeight: '22px',
+  width: 22,
+  height: 22,
+  textAlign: 'center',
+  userSelect: 'none',
+};

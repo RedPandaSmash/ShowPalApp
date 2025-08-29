@@ -1,22 +1,26 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-const AuthContext = createContext({ isSignedIn: false, userId: null, refresh: () => {} });
+const AuthContext = createContext({
+  isSignedIn: false,
+  userId: null,
+  refresh: () => {},
+});
 
 export function AuthProvider({ children }) {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [userId, setUserId] = useState(null);
 
   const refresh = async () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (!token) {
       setIsSignedIn(false);
       setUserId(null);
       return;
     }
     try {
-      const res = await fetch('http://localhost:8080/api/users/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("http://localhost:8080/api/users/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token }),
       });
       if (!res.ok) {
@@ -41,10 +45,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     refresh();
     const onStorage = (e) => {
-      if (e.key === 'token') refresh();
+      if (e.key === "token") refresh();
     };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   return (

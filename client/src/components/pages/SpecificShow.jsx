@@ -1,8 +1,45 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { popularShowsSection } from "./homeStyles";
-import { useAuth } from '../../context/AuthContext';
-import { interactiveHover, interactiveButton } from '../multiuse/interactiveStyles';
+import { useAuth } from "../../context/AuthContext";
+import {
+  interactiveHover,
+  interactiveButton,
+  starBase,
+} from "../multiuse/interactiveStyles";
+
+// SVG Star component with clipPath for partial fills
+function SVGStar({ fill = 1, size = 18, color = '#e5b800', id }) {
+  const pct = Math.max(0, Math.min(1, fill)) * 100;
+  const clipId = `clip-${id}`;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      style={{ display: 'inline-block', verticalAlign: 'middle', margin: '0 1px' }}
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <rect x="0" y="0" width={`${pct}%`} height="100%" />
+        </clipPath>
+      </defs>
+      {/* empty star */}
+      <path
+        d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"
+        fill="#ccc"
+      />
+      {/* filled part clipped to pct */}
+      <g clipPath={`url(#${clipId})`}>
+        <path
+          d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"
+          fill={color}
+        />
+      </g>
+    </svg>
+  );
+}
 
 export default function SpecificShow() {
   const { showID } = useParams();
@@ -27,17 +64,23 @@ export default function SpecificShow() {
   const fetchReviews = async () => {
     setReviewsLoading(true);
     try {
-  const res = await fetch(`http://localhost:8080/api/reviews?showID=${encodeURIComponent(showID)}`);
+      const res = await fetch(
+        `http://localhost:8080/api/reviews?showID=${encodeURIComponent(showID)}`
+      );
       if (!res.ok) {
         const text = await res.text();
-        console.error('fetchReviews failed', res.status, text);
+        console.error("fetchReviews failed", res.status, text);
         setReviews([]);
         return;
       }
-      const contentType = res.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
         const text = await res.text();
-        console.error('fetchReviews unexpected content-type', contentType, text);
+        console.error(
+          "fetchReviews unexpected content-type",
+          contentType,
+          text
+        );
         setReviews([]);
         return;
       }
@@ -151,15 +194,32 @@ export default function SpecificShow() {
           />
         ) : null}
         <div style={{ textAlign: "left" }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <h1 style={{ marginTop: 0 }}>{show.name || show.original_name}</h1>
-            <div style={{ fontSize: '1rem', fontWeight: '700', color: '#e5b800' }}>
-              {reviews && reviews.length
-                ? `${(
+            <div style={{ fontSize: "1rem", fontWeight: "700", color: "#000" }}>
+              {reviews && reviews.length ? (
+                <span>
+                  Average Rating: {(
                     reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) /
                     reviews.length
-                  ).toFixed(2)} (${reviews.length})`
-                : <span style={{ color: '#000' }}>(This show does not have any reviews yet.)</span> }
+                  ).toFixed(2)}{" "}
+                  (<a
+                    href="#reviews-section"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const el = document.getElementById('reviews-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    style={{ color: '#000', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
+                  </a>)
+                </span>
+              ) : (
+                <span style={{ color: "#000" }}>
+                  (This show does not have any reviews yet.)
+                </span>
+              )}
             </div>
           </div>
 
@@ -272,7 +332,9 @@ export default function SpecificShow() {
                 <div style={{ borderRight: "1px solid #000", padding: 8 }}>
                   <strong>{ep.name}</strong>
                 </div>
-                <div style={{ borderRight: "1px solid #000", padding: 8 }}>{ep.overview}</div>
+                <div style={{ borderRight: "1px solid #000", padding: 8 }}>
+                  {ep.overview}
+                </div>
                 <div style={{ padding: 8 }}>{ep.air_date || "N/A"}</div>
               </div>
             ))}
@@ -281,7 +343,15 @@ export default function SpecificShow() {
       </div>
 
       {/* Reviews section */}
-      <div style={{ ...popularShowsSection, marginTop: 20, color: "#000", background: '#fff4b5' }}>
+      <div
+        style={{
+          ...popularShowsSection,
+          marginTop: 20,
+          color: "#000",
+          background: "#fff4b5",
+        }}
+        id="reviews-section"
+      >
         <h3 style={{ marginTop: 0 }}>Reviews</h3>
         <div style={{ padding: 12 }}>
           {isSignedIn ? (
@@ -324,6 +394,17 @@ function ReviewForm({ showID, onNewReview, refreshAuth }) {
   const [hoverValue, setHoverValue] = React.useState(null);
   const starRef = React.useRef(null);
 
+  // helper to render a star with partial fill (0..1)
+  const Star = ({ fill = 0, color = '#e5b800' }) => {
+    const pct = Math.max(0, Math.min(1, fill)) * 100;
+    return (
+      <span style={{ position: 'relative', display: 'inline-block', width: 22, height: 22, margin: '0 2px' }}>
+        <span style={{ ...starBase, color: '#ccc', position: 'absolute', left: 0, top: 0 }}>★</span>
+        <span style={{ ...starBase, color, position: 'absolute', left: 0, top: 0, width: `${pct}%`, overflow: 'hidden', WebkitTextStroke: '0' }}>★</span>
+      </span>
+    );
+  };
+
   const handleStarMouseMove = (e, index) => {
     // index is 0..4
     const rect = e.currentTarget.getBoundingClientRect();
@@ -348,7 +429,7 @@ function ReviewForm({ showID, onNewReview, refreshAuth }) {
     setSubmitting(true);
     try {
       const token = localStorage.getItem("token");
-  const res = await fetch("http://localhost:8080/api/reviews", {
+      const res = await fetch("http://localhost:8080/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token },
         body: JSON.stringify({ showID, rating, comment }),
@@ -381,49 +462,85 @@ function ReviewForm({ showID, onNewReview, refreshAuth }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <form
+      onSubmit={handleSubmit}
+      style={{ display: "flex", flexDirection: "column", gap: 8 }}
+    >
       <div>
         <strong>Be a Pal 'n' leave your opinion on the show!</strong>
       </div>
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-        {/* render 5 stars, each supports half-star detection */}
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        {/* render 5 stars with partial fill; use hoverValue for preview when present */}
         {Array.from({ length: 5 }).map((_, i) => {
-          const fullFilled = rating >= i + 1;
-          const halfFilled = rating >= i + 0.5 && rating < i + 1;
-          const hoverFull = hoverValue >= i + 1;
-          const hoverHalf = hoverValue >= i + 0.5 && hoverValue < i + 1;
-          const color = hoverValue != null ? (hoverFull || hoverHalf ? interactiveHover.color : '#ccc') : (fullFilled || halfFilled ? '#e5b800' : '#ccc');
+          const valueToUse = hoverValue != null ? hoverValue : rating;
+          const raw = valueToUse - i; // 1.. >1 etc
+          const fill = Math.max(0, Math.min(1, raw));
+          const color = hoverValue != null ? interactiveHover.color : '#e5b800';
+          // disallow first star hover preview of 0.5 (show full on left-half)
+          const handleMove = (e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            let half = x < rect.width / 2 ? 0.5 : 1;
+            if (i === 0 && half === 0.5) half = 1; // prevent 0.5 preview on first star
+            const value = i + half;
+            setHoverValue(value);
+          };
+          const handleKey = (e) => {
+            if (e.key === 'ArrowLeft') {
+              setRating((r) => Math.max(1, Math.round((r - 0.5) * 2) / 2));
+            } else if (e.key === 'ArrowRight') {
+              setRating((r) => Math.min(5, Math.round((r + 0.5) * 2) / 2));
+            } else if (e.key === 'Home') {
+              setRating(1);
+            } else if (e.key === 'End') {
+              setRating(5);
+            } else if (e.key === 'Enter' || e.key === ' ') {
+              // toggle to this star full/half depending on hover
+              const rect = e.currentTarget.getBoundingClientRect();
+              const half = 1;
+              const value = i + half;
+              setRating(Math.max(1, value));
+            }
+          };
           return (
-            <div
+            <span
               key={i}
-              onMouseMove={(e) => handleStarMouseMove(e, i)}
+              onMouseMove={handleMove}
               onMouseLeave={() => setHoverValue(null)}
               onClick={(e) => handleStarClick(e, i)}
-              role="button"
+              onKeyDown={handleKey}
+              role="slider"
               tabIndex={0}
-              style={{ cursor: 'pointer', fontSize: 22, color, padding: '0 2px', userSelect: 'none' }}
+              aria-valuemin={1}
+              aria-valuemax={5}
+              aria-valuenow={rating}
               aria-label={`Rate ${i + 1} stars or half`}
+              style={{ cursor: 'pointer', display: 'inline-block' }}
             >
-              ★
-            </div>
+              {/* use SVG star for crisp visuals */}
+              <SVGStar fill={fill} color={color} id={`r-${i}-${String(Math.random()).slice(2,8)}`} />
+            </span>
           );
         })}
-        <div style={{ marginLeft: 8 }}>{rating}</div>
       </div>
 
-      <label style={{ display: 'flex', flexDirection: 'column' }}>
+      <label style={{ display: "flex", flexDirection: "column" }}>
         Comment (max 500 chars):
         <textarea
           maxLength={500}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          style={{ width: '100%', minHeight: 80, marginTop: 6 }}
+          style={{ width: "100%", minHeight: 80, marginTop: 6 }}
         />
       </label>
 
       <div>
-        <button type="submit" disabled={submitting} style={{ ...interactiveButton, cursor: 'pointer' }}>
-          {submitting ? 'Posting...' : 'Submit'}
+        <button
+          type="submit"
+          disabled={submitting}
+          style={{ ...interactiveButton, cursor: "pointer" }}
+        >
+          {submitting ? "Posting..." : "Submit"}
         </button>
       </div>
     </form>
@@ -433,8 +550,35 @@ function ReviewForm({ showID, onNewReview, refreshAuth }) {
 function ReviewList({ reviews, currentUserId, onRefresh }) {
   const [loading, setLoading] = React.useState(false);
   const [localReviews, setLocalReviews] = React.useState(reviews || []);
+  const [usernames, setUsernames] = React.useState({});
+  const usernameCacheRef = React.useRef(new Map());
 
   React.useEffect(() => setLocalReviews(reviews || []), [reviews]);
+
+  // fetch usernames for reviews, simple in-memory cache for this component
+  React.useEffect(() => {
+    let mounted = true;
+    const fetchNames = async () => {
+      const ids = Array.from(new Set((reviews || []).map(r => String(r.userID))));
+      const toFetch = ids.filter(id => id && !usernameCacheRef.current.has(id));
+      await Promise.all(toFetch.map(async (id) => {
+        try {
+          const res = await fetch(`http://localhost:8080/api/users/${id}/username`);
+          if (!res.ok) return;
+          const data = await res.json();
+          usernameCacheRef.current.set(id, data.username);
+        } catch (e) {
+          console.error('failed to fetch username', id, e);
+        }
+      }));
+      if (!mounted) return;
+      const mapObj = {};
+      usernameCacheRef.current.forEach((v, k) => (mapObj[k] = v));
+      setUsernames(mapObj);
+    };
+    fetchNames();
+    return () => { mounted = false; };
+  }, [reviews]);
 
   const toggleLike = async (reviewId) => {
     try {
@@ -442,25 +586,37 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
       setLocalReviews((cur) =>
         cur.map((r) => {
           if (String(r._id) !== String(reviewId)) return r;
-          const userHasLiked = Array.isArray(r.likedBy) && currentUserId && r.likedBy.some(id => String(id) === String(currentUserId));
-          const newLikedBy = userHasLiked ? r.likedBy.filter(id => String(id) !== String(currentUserId)) : [...(r.likedBy || []), currentUserId];
-          const newLikes = userHasLiked ? Math.max(0, (r.likes || 0) - 1) : (r.likes || 0) + 1;
+          const userHasLiked =
+            Array.isArray(r.likedBy) &&
+            currentUserId &&
+            r.likedBy.some((id) => String(id) === String(currentUserId));
+          const newLikedBy = userHasLiked
+            ? r.likedBy.filter((id) => String(id) !== String(currentUserId))
+            : [...(r.likedBy || []), currentUserId];
+          const newLikes = userHasLiked
+            ? Math.max(0, (r.likes || 0) - 1)
+            : (r.likes || 0) + 1;
           return { ...r, likedBy: newLikedBy, likes: newLikes };
         })
       );
 
-      const token = localStorage.getItem('token');
-  const res = await fetch(`http://localhost:8080/api/reviews/${reviewId}/like`, {
-        method: 'POST',
-        headers: { Authorization: token },
-      });
-      if (!res.ok) throw new Error('failed to toggle like');
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `http://localhost:8080/api/reviews/${reviewId}/like`,
+        {
+          method: "POST",
+          headers: { Authorization: token },
+        }
+      );
+      if (!res.ok) throw new Error("failed to toggle like");
       // update from server response
       const updated = await res.json();
-      setLocalReviews((cur) => cur.map((r) => (String(r._id) === String(updated._id) ? updated : r)));
+      setLocalReviews((cur) =>
+        cur.map((r) => (String(r._id) === String(updated._id) ? updated : r))
+      );
     } catch (err) {
       console.error(err);
-      alert('Failed to like/unlike review. Make sure you are logged in.');
+      alert("Failed to like/unlike review. Make sure you are logged in.");
       if (onRefresh) onRefresh();
     }
   };
@@ -468,22 +624,58 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
   if (!localReviews || localReviews.length === 0) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {localReviews.map((r) => {
-        const liked = Array.isArray(r.likedBy) && currentUserId
-          ? r.likedBy.some((id) => String(id) === String(currentUserId))
-          : false;
+        const liked =
+          Array.isArray(r.likedBy) && currentUserId
+            ? r.likedBy.some((id) => String(id) === String(currentUserId))
+            : false;
         return (
-          <div key={r._id} style={{ border: '1px solid #ccc', padding: 8, background: '#fff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div><strong>Rating:</strong> {r.rating}</div>
+          <div
+            key={r._id}
+            style={{ border: "1px solid #ccc", padding: 8, background: "#fff", textAlign: 'left' }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div>
+                    {/* username */}
+                    <a href={`/user/${r.userID}`} style={{ color: '#6c2eb6', fontWeight: 700, textDecoration: 'none' }}>
+                      {usernames[String(r.userID)] || 'Unknown'}
+                    </a>
+                  </div>
+                </div>
+                <div style={{ fontWeight: 700 }}>Rating:</div>
+                <div>
+                  {/* render stars for the review rating (no hover) */}
+                  {Array.from({ length: 5 }).map((_, i) => {
+                    const raw = r.rating - i;
+                    const fill = Math.max(0, Math.min(1, raw));
+                    return (
+                      <span key={i} style={{ display: 'inline-block' }}>
+                        <SVGStar fill={fill} size={16} color={'#e5b800'} id={`rev-${r._id}-${i}`} />
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
               <div>
-                <button onClick={() => toggleLike(r._id)} style={{ marginRight: 8, ...interactiveButton }}>
-                  {liked ? '♥' : '♡'} {r.likes || 0}
+                <button
+                  onClick={() => toggleLike(r._id)}
+                  style={{ marginRight: 8, ...interactiveButton, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 68, padding: '0 6px' }}
+                >
+                  <span style={{ marginRight: 6 }}>{liked ? "♥" : "♡"}</span>
+                  <span>{r.likes || 0}</span>
                 </button>
               </div>
             </div>
-            <div style={{ marginTop: 6 }}>{r.comment}</div>
+            <div style={{ marginTop: 6, textAlign: 'left' }}>{r.comment}</div>
           </div>
         );
       })}

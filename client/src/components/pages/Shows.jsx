@@ -113,7 +113,14 @@ export default function Shows() {
         key="first"
         onClick={onFirst}
         disabled={page === 1}
-        style={{ padding: "6px 10px", cursor: page === 1 ? 'default' : 'pointer', background: '#ffd700', color: '#6c2eb6', borderRadius: 6, border: 'none' }}
+        style={{
+          padding: "6px 10px",
+          cursor: page === 1 ? "default" : "pointer",
+          background: "#ffd700",
+          color: "#6c2eb6",
+          borderRadius: 6,
+          border: "none",
+        }}
       >
         1
       </button>
@@ -131,10 +138,10 @@ export default function Shows() {
             padding: "6px 10px",
             fontWeight: p === page ? "bold" : "normal",
             cursor: p === page ? "default" : "pointer",
-            background: p === page ? '#6c2eb6' : '#ffd700',
-            color: p === page ? '#ffd700' : '#6c2eb6',
+            background: p === page ? "#6c2eb6" : "#ffd700",
+            color: p === page ? "#ffd700" : "#6c2eb6",
             borderRadius: 6,
-            border: 'none'
+            border: "none",
           }}
         >
           {p}
@@ -154,10 +161,10 @@ export default function Shows() {
           style={{
             padding: "6px 10px",
             cursor: page === totalPages ? "default" : "pointer",
-            background: '#ffd700',
-            color: '#6c2eb6',
+            background: "#ffd700",
+            color: "#6c2eb6",
             borderRadius: 6,
-            border: 'none'
+            border: "none",
           }}
         >
           {totalPages}
