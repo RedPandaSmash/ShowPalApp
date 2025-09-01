@@ -35,11 +35,11 @@ export const interactiveButton = {
 
 // Star rendering helper styles
 export const starBase = {
-  display: 'inline-block',
+  display: "inline-block",
   fontSize: 22,
-  lineHeight: '22px',
+  lineHeight: "22px",
   width: 22,
   height: 22,
-  textAlign: 'center',
-  userSelect: 'none',
+  textAlign: "center",
+  userSelect: "none",
 };
