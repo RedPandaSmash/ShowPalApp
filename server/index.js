@@ -7,6 +7,7 @@ import userRoutes from "./routes/user.route.js";
 import "dotenv/config";
 import showRoutes from "./routes/show.route.js";
 import reviewRoutes from "./routes/review.route.js";
+import replyRoutes from "./routes/reply.route.js";
 
 const PORT = process.env.PORT || 8080;
 const MONGO = process.env.MONGO;
@@ -42,11 +43,11 @@ app.use("/api/users", userRoutes);
 // use show routes
 app.use("/api/shows", showRoutes);
 
-app.get("/api/users", (req, res) => {
-  res.send(`${User}`);
-});
-
+// use review routes
 app.use("/api/reviews", reviewRoutes);
+
+// use reply routes
+app.use("/api/replies", replyRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is live`);
