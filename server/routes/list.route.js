@@ -50,7 +50,8 @@ router.put("/:id", validateSession, async (req, res) => {
   try {
     const list = await List.findById(req.params.id);
     if (!list) return res.status(404).json({ error: "List not found" });
-    if (String(list.userID) !== String(req.user._id)) return res.status(403).json({ error: "forbidden" });
+    if (String(list.userID) !== String(req.user._id))
+      return res.status(403).json({ error: "forbidden" });
     const { name, shows } = req.body;
     if (name !== undefined) list.name = name;
     if (shows !== undefined) list.shows = shows;
@@ -67,7 +68,8 @@ router.delete("/:id", validateSession, async (req, res) => {
   try {
     const list = await List.findById(req.params.id);
     if (!list) return res.status(404).json({ error: "List not found" });
-    if (String(list.userID) !== String(req.user._id)) return res.status(403).json({ error: "forbidden" });
+    if (String(list.userID) !== String(req.user._id))
+      return res.status(403).json({ error: "forbidden" });
     await list.remove();
     return res.status(204).send();
   } catch (err) {
@@ -77,27 +79,32 @@ router.delete("/:id", validateSession, async (req, res) => {
 });
 
 // Toggle a show in the list (authenticated + owner)
-router.post('/:id/toggle-show', validateSession, async (req, res) => {
+router.post("/:id/toggle-show", validateSession, async (req, res) => {
   try {
     const { showID } = req.body;
-    if (!showID) return res.status(400).json({ error: 'showID required' });
+    if (!showID) return res.status(400).json({ error: "showID required" });
     const list = await List.findById(req.params.id);
-    if (!list) return res.status(404).json({ error: 'List not found' });
-    if (String(list.userID) !== String(req.user._id)) return res.status(403).json({ error: 'forbidden' });
+    if (!list) return res.status(404).json({ error: "List not found" });
+    if (String(list.userID) !== String(req.user._id))
+      return res.status(403).json({ error: "forbidden" });
 
-    const idx = (list.shows || []).findIndex((s) => String(s) === String(showID));
+    const idx = (list.shows || []).findIndex(
+      (s) => String(s) === String(showID)
+    );
     if (idx === -1) {
       // add
       list.shows = [...(list.shows || []), String(showID)];
     } else {
       // remove
-      list.shows = (list.shows || []).filter((s) => String(s) !== String(showID));
+      list.shows = (list.shows || []).filter(
+        (s) => String(s) !== String(showID)
+      );
     }
     const saved = await list.save();
     return res.status(200).json(saved);
   } catch (err) {
-    console.error('toggle show error', err);
-    return res.status(500).json({ error: 'internal server error' });
+    console.error("toggle show error", err);
+    return res.status(500).json({ error: "internal server error" });
   }
 });
 

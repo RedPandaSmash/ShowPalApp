@@ -57,13 +57,15 @@ function ListDropdown({ showID }) {
     setLoading(true);
     try {
       const res = await fetch(`http://localhost:8080/api/lists?mine=true`);
-      if (!res.ok) throw new Error('failed');
+      if (!res.ok) throw new Error("failed");
       const data = await res.json();
       setLists(Array.isArray(data.lists) ? data.lists : []);
     } catch (e) {
-      console.error('fetch lists', e);
+      console.error("fetch lists", e);
       setLists([]);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   React.useEffect(() => {
@@ -72,76 +74,193 @@ function ListDropdown({ showID }) {
   }, [open, isSignedIn]);
 
   const createList = async () => {
-    const name = prompt('Create a new list name:');
+    const name = prompt("Create a new list name:");
     if (!name) return;
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8080/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token }, body: JSON.stringify({ name, shows: [String(showID)] }) });
-      if (!res.ok) throw new Error('failed create');
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8080/api/lists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: token },
+        body: JSON.stringify({ name, shows: [String(showID)] }),
+      });
+      if (!res.ok) throw new Error("failed create");
       await fetchLists();
-    } catch (e) { console.error('create list', e); alert('Failed to create list'); }
+    } catch (e) {
+      console.error("create list", e);
+      alert("Failed to create list");
+    }
   };
 
   const toggleShowInList = async (listId) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:8080/api/lists/${listId}/toggle-show`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token }, body: JSON.stringify({ showID: String(showID) }) });
-      if (!res.ok) throw new Error('failed toggle');
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `http://localhost:8080/api/lists/${listId}/toggle-show`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: token },
+          body: JSON.stringify({ showID: String(showID) }),
+        }
+      );
+      if (!res.ok) throw new Error("failed toggle");
       await fetchLists();
-    } catch (e) { console.error('toggle show', e); alert('Failed to toggle show in list'); }
+    } catch (e) {
+      console.error("toggle show", e);
+      alert("Failed to toggle show in list");
+    }
   };
 
   const deleteList = async (listId) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:8080/api/lists/${listId}`, { method: 'DELETE', headers: { Authorization: token } });
-      if (!res.ok && res.status !== 204) throw new Error('failed delete');
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:8080/api/lists/${listId}`, {
+        method: "DELETE",
+        headers: { Authorization: token },
+      });
+      if (!res.ok && res.status !== 204) throw new Error("failed delete");
       setConfirmDelete(null);
       await fetchLists();
-    } catch (e) { console.error('delete list', e); alert('Failed to delete list'); }
+    } catch (e) {
+      console.error("delete list", e);
+      alert("Failed to delete list");
+    }
   };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <button onClick={() => setOpen((s) => !s)} style={{ background: '#6c2eb6', color: '#ffd500', border: 'none', padding: 8, borderRadius: 6 }} aria-haspopup="true" aria-expanded={open} title="Lists">
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((s) => !s)}
+        style={{
+          background: "#6c2eb6",
+          color: "#ffd500",
+          border: "none",
+          padding: 8,
+          borderRadius: 6,
+        }}
+        aria-haspopup="true"
+        aria-expanded={open}
+        title="Lists"
+      >
         {/* three vertical yellow dots */}
-        <span style={{ display: 'inline-block', transform: 'translateY(2px)' }}>⋮</span>
+        <span style={{ display: "inline-block", transform: "translateY(2px)" }}>
+          ⋮
+        </span>
       </button>
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: '110%', width: 320, background: '#fff', color: '#000', border: '1px solid #ddd', borderRadius: 6, padding: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.12)', zIndex: 50 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={createList} style={{ ...interactiveButton }}>＋</button>
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "110%",
+            width: 320,
+            background: "#fff",
+            color: "#000",
+            border: "1px solid #ddd",
+            borderRadius: 6,
+            padding: 8,
+            boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={createList} style={{ ...interactiveButton }}>
+                ＋
+              </button>
               <div style={{ fontWeight: 700 }}>Create A New List</div>
             </div>
             <div>
-              <button onClick={() => setOpen(false)} style={{ padding: 4 }}>✕</button>
+              <button onClick={() => setOpen(false)} style={{ padding: 4 }}>
+                ✕
+              </button>
             </div>
           </div>
-          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-            {loading ? <div>Loading lists...</div> : (
-              lists.length === 0 ? <div style={{ color: '#666' }}>You have no lists yet.</div> : (
-                lists.map((l) => (
-                  <div key={l._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 4px', borderBottom: '1px solid #f1f1f1' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input type="checkbox" checked={Array.isArray(l.shows) && l.shows.some(s => String(s) === String(showID))} onChange={() => toggleShowInList(l._id)} />
-                      <span>{l.name}</span>
-                    </label>
-                    <div>
-                      <button onClick={() => setConfirmDelete(l._id)} style={{ background: 'transparent', border: 'none', color: '#c00' }}>🗑️</button>
-                    </div>
-                    {confirmDelete === l._id && (
-                      <div style={{ position: 'absolute', right: 8, background: '#fff', border: '1px solid #ccc', padding: 8, borderRadius: 6 }}>
-                        <div style={{ marginBottom: 8 }}>Are you sure you want to delete this list? Deleted lists cannot be recovered.</div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={() => deleteList(l._id)} style={{ ...interactiveButton, background: '#c00', color: '#fff' }}>Yeah, Delete It</button>
-                          <button onClick={() => setConfirmDelete(null)} style={{ padding: '6px 10px' }}>No! Don't Delete It!</button>
-                        </div>
-                      </div>
-                    )}
+          <div style={{ maxHeight: 300, overflowY: "auto" }}>
+            {loading ? (
+              <div>Loading lists...</div>
+            ) : lists.length === 0 ? (
+              <div style={{ color: "#666" }}>You have no lists yet.</div>
+            ) : (
+              lists.map((l) => (
+                <div
+                  key={l._id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "6px 4px",
+                    borderBottom: "1px solid #f1f1f1",
+                  }}
+                >
+                  <label
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={
+                        Array.isArray(l.shows) &&
+                        l.shows.some((s) => String(s) === String(showID))
+                      }
+                      onChange={() => toggleShowInList(l._id)}
+                    />
+                    <span>{l.name}</span>
+                  </label>
+                  <div>
+                    <button
+                      onClick={() => setConfirmDelete(l._id)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "#c00",
+                      }}
+                    >
+                      🗑️
+                    </button>
                   </div>
-                ))
-              )
+                  {confirmDelete === l._id && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 8,
+                        background: "#fff",
+                        border: "1px solid #ccc",
+                        padding: 8,
+                        borderRadius: 6,
+                      }}
+                    >
+                      <div style={{ marginBottom: 8 }}>
+                        Are you sure you want to delete this list? Deleted lists
+                        cannot be recovered.
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          onClick={() => deleteList(l._id)}
+                          style={{
+                            ...interactiveButton,
+                            background: "#c00",
+                            color: "#fff",
+                          }}
+                        >
+                          Yeah, Delete It
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          style={{ padding: "6px 10px" }}
+                        >
+                          No! Don't Delete It!
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -317,7 +436,7 @@ export default function SpecificShow() {
                 {show.name || show.original_name}
               </h1>
               {/* Lists dropdown: top-right of show info header */}
-              <div style={{ marginLeft: 'auto' }}>
+              <div style={{ marginLeft: "auto" }}>
                 <ListDropdown showID={showID} />
               </div>
               <div
@@ -1022,9 +1141,20 @@ function ReviewReplies({ reviewId, onOpenReply, onOpenChange }) {
       {open && (
         <div style={{ marginTop: 8 }}>
           {/* Reply button above replies; clicking opens the inline form only when pressed */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginBottom: 8,
+            }}
+          >
             {isSignedIn && !replyFormOpen && (
-              <button onClick={() => setReplyFormOpen(true)} style={{ ...interactiveButton, padding: '6px 10px' }}>Reply</button>
+              <button
+                onClick={() => setReplyFormOpen(true)}
+                style={{ ...interactiveButton, padding: "6px 10px" }}
+              >
+                Reply
+              </button>
             )}
           </div>
 
@@ -1032,7 +1162,7 @@ function ReviewReplies({ reviewId, onOpenReply, onOpenChange }) {
             <div style={{ marginBottom: 8 }}>
               <InlineReplyForm
                 parentID={reviewId}
-                parentModel={'Review'}
+                parentModel={"Review"}
                 indentLevel={0}
                 onPosted={() => {
                   fetchReplies();
