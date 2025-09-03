@@ -45,6 +45,111 @@ function SVGStar({ fill = 1, size = 18, color = "#e5b800", id }) {
   );
 }
 
+// Dropdown UI for managing lists for the current show
+function ListDropdown({ showID }) {
+  const { isSignedIn } = useAuth();
+  const [open, setOpen] = React.useState(false);
+  const [lists, setLists] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [confirmDelete, setConfirmDelete] = React.useState(null); // list id pending deletion
+
+  const fetchLists = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`http://localhost:8080/api/lists?mine=true`);
+      if (!res.ok) throw new Error('failed');
+      const data = await res.json();
+      setLists(Array.isArray(data.lists) ? data.lists : []);
+    } catch (e) {
+      console.error('fetch lists', e);
+      setLists([]);
+    } finally { setLoading(false); }
+  };
+
+  React.useEffect(() => {
+    if (open && isSignedIn) fetchLists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isSignedIn]);
+
+  const createList = async () => {
+    const name = prompt('Create a new list name:');
+    if (!name) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:8080/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token }, body: JSON.stringify({ name, shows: [String(showID)] }) });
+      if (!res.ok) throw new Error('failed create');
+      await fetchLists();
+    } catch (e) { console.error('create list', e); alert('Failed to create list'); }
+  };
+
+  const toggleShowInList = async (listId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8080/api/lists/${listId}/toggle-show`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token }, body: JSON.stringify({ showID: String(showID) }) });
+      if (!res.ok) throw new Error('failed toggle');
+      await fetchLists();
+    } catch (e) { console.error('toggle show', e); alert('Failed to toggle show in list'); }
+  };
+
+  const deleteList = async (listId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8080/api/lists/${listId}`, { method: 'DELETE', headers: { Authorization: token } });
+      if (!res.ok && res.status !== 204) throw new Error('failed delete');
+      setConfirmDelete(null);
+      await fetchLists();
+    } catch (e) { console.error('delete list', e); alert('Failed to delete list'); }
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen((s) => !s)} style={{ background: '#6c2eb6', color: '#ffd500', border: 'none', padding: 8, borderRadius: 6 }} aria-haspopup="true" aria-expanded={open} title="Lists">
+        {/* three vertical yellow dots */}
+        <span style={{ display: 'inline-block', transform: 'translateY(2px)' }}>⋮</span>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', right: 0, top: '110%', width: 320, background: '#fff', color: '#000', border: '1px solid #ddd', borderRadius: 6, padding: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.12)', zIndex: 50 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={createList} style={{ ...interactiveButton }}>＋</button>
+              <div style={{ fontWeight: 700 }}>Create A New List</div>
+            </div>
+            <div>
+              <button onClick={() => setOpen(false)} style={{ padding: 4 }}>✕</button>
+            </div>
+          </div>
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            {loading ? <div>Loading lists...</div> : (
+              lists.length === 0 ? <div style={{ color: '#666' }}>You have no lists yet.</div> : (
+                lists.map((l) => (
+                  <div key={l._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 4px', borderBottom: '1px solid #f1f1f1' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="checkbox" checked={Array.isArray(l.shows) && l.shows.some(s => String(s) === String(showID))} onChange={() => toggleShowInList(l._id)} />
+                      <span>{l.name}</span>
+                    </label>
+                    <div>
+                      <button onClick={() => setConfirmDelete(l._id)} style={{ background: 'transparent', border: 'none', color: '#c00' }}>🗑️</button>
+                    </div>
+                    {confirmDelete === l._id && (
+                      <div style={{ position: 'absolute', right: 8, background: '#fff', border: '1px solid #ccc', padding: 8, borderRadius: 6 }}>
+                        <div style={{ marginBottom: 8 }}>Are you sure you want to delete this list? Deleted lists cannot be recovered.</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => deleteList(l._id)} style={{ ...interactiveButton, background: '#c00', color: '#fff' }}>Yeah, Delete It</button>
+                          <button onClick={() => setConfirmDelete(null)} style={{ padding: '6px 10px' }}>No! Don't Delete It!</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SpecificShow() {
   const { showID } = useParams();
   const navigate = useNavigate();
@@ -211,6 +316,10 @@ export default function SpecificShow() {
               <h1 style={{ marginTop: 0 }}>
                 {show.name || show.original_name}
               </h1>
+              {/* Lists dropdown: top-right of show info header */}
+              <div style={{ marginLeft: 'auto' }}>
+                <ListDropdown showID={showID} />
+              </div>
               <div
                 style={{ fontSize: "1rem", fontWeight: "700", color: "#000" }}
               >
@@ -912,20 +1021,28 @@ function ReviewReplies({ reviewId, onOpenReply, onOpenChange }) {
       {/* when open, show Reply button above the replies */}
       {open && (
         <div style={{ marginTop: 8 }}>
-          {/* render the inline reply form full-width so it matches other inline forms */}
-          <div style={{ marginBottom: 8 }}>
-            <InlineReplyForm
-              parentID={reviewId}
-              parentModel={"Review"}
-              indentLevel={0}
-              onPosted={() => {
-                fetchReplies();
-              }}
-              onClose={() => {
-                /* no-op */
-              }}
-            />
+          {/* Reply button above replies; clicking opens the inline form only when pressed */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            {isSignedIn && !replyFormOpen && (
+              <button onClick={() => setReplyFormOpen(true)} style={{ ...interactiveButton, padding: '6px 10px' }}>Reply</button>
+            )}
           </div>
+
+          {replyFormOpen && (
+            <div style={{ marginBottom: 8 }}>
+              <InlineReplyForm
+                parentID={reviewId}
+                parentModel={'Review'}
+                indentLevel={0}
+                onPosted={() => {
+                  fetchReplies();
+                  setReplyFormOpen(false);
+                }}
+                onClose={() => setReplyFormOpen(false)}
+              />
+            </div>
+          )}
+
           {loading ? (
             <div>Loading replies...</div>
           ) : (

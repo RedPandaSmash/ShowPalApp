@@ -8,6 +8,7 @@ import "dotenv/config";
 import showRoutes from "./routes/show.route.js";
 import reviewRoutes from "./routes/review.route.js";
 import replyRoutes from "./routes/reply.route.js";
+import listRoutes from "./routes/list.route.js";
 
 const PORT = process.env.PORT || 8080;
 const MONGO = process.env.MONGO;
@@ -48,6 +49,9 @@ app.use("/api/reviews", reviewRoutes);
 
 // use reply routes
 app.use("/api/replies", replyRoutes);
+
+// use list routes
+app.use("/api/lists", listRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is live`);
