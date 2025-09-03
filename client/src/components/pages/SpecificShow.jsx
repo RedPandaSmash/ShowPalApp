@@ -45,6 +45,111 @@ function SVGStar({ fill = 1, size = 18, color = "#e5b800", id }) {
   );
 }
 
+// Dropdown UI for managing lists for the current show
+function ListDropdown({ showID }) {
+  const { isSignedIn } = useAuth();
+  const [open, setOpen] = React.useState(false);
+  const [lists, setLists] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [confirmDelete, setConfirmDelete] = React.useState(null); // list id pending deletion
+
+  const fetchLists = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`http://localhost:8080/api/lists?mine=true`);
+      if (!res.ok) throw new Error('failed');
+      const data = await res.json();
+      setLists(Array.isArray(data.lists) ? data.lists : []);
+    } catch (e) {
+      console.error('fetch lists', e);
+      setLists([]);
+    } finally { setLoading(false); }
+  };
+
+  React.useEffect(() => {
+    if (open && isSignedIn) fetchLists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isSignedIn]);
+
+  const createList = async () => {
+    const name = prompt('Create a new list name:');
+    if (!name) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:8080/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token }, body: JSON.stringify({ name, shows: [String(showID)] }) });
+      if (!res.ok) throw new Error('failed create');
+      await fetchLists();
+    } catch (e) { console.error('create list', e); alert('Failed to create list'); }
+  };
+
+  const toggleShowInList = async (listId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8080/api/lists/${listId}/toggle-show`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token }, body: JSON.stringify({ showID: String(showID) }) });
+      if (!res.ok) throw new Error('failed toggle');
+      await fetchLists();
+    } catch (e) { console.error('toggle show', e); alert('Failed to toggle show in list'); }
+  };
+
+  const deleteList = async (listId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8080/api/lists/${listId}`, { method: 'DELETE', headers: { Authorization: token } });
+      if (!res.ok && res.status !== 204) throw new Error('failed delete');
+      setConfirmDelete(null);
+      await fetchLists();
+    } catch (e) { console.error('delete list', e); alert('Failed to delete list'); }
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen((s) => !s)} style={{ background: '#6c2eb6', color: '#ffd500', border: 'none', padding: 8, borderRadius: 6 }} aria-haspopup="true" aria-expanded={open} title="Lists">
+        {/* three vertical yellow dots */}
+        <span style={{ display: 'inline-block', transform: 'translateY(2px)' }}>⋮</span>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', right: 0, top: '110%', width: 320, background: '#fff', color: '#000', border: '1px solid #ddd', borderRadius: 6, padding: 8, boxShadow: '0 6px 18px rgba(0,0,0,0.12)', zIndex: 50 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={createList} style={{ ...interactiveButton }}>＋</button>
+              <div style={{ fontWeight: 700 }}>Create A New List</div>
+            </div>
+            <div>
+              <button onClick={() => setOpen(false)} style={{ padding: 4 }}>✕</button>
+            </div>
+          </div>
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            {loading ? <div>Loading lists...</div> : (
+              lists.length === 0 ? <div style={{ color: '#666' }}>You have no lists yet.</div> : (
+                lists.map((l) => (
+                  <div key={l._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 4px', borderBottom: '1px solid #f1f1f1' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="checkbox" checked={Array.isArray(l.shows) && l.shows.some(s => String(s) === String(showID))} onChange={() => toggleShowInList(l._id)} />
+                      <span>{l.name}</span>
+                    </label>
+                    <div>
+                      <button onClick={() => setConfirmDelete(l._id)} style={{ background: 'transparent', border: 'none', color: '#c00' }}>🗑️</button>
+                    </div>
+                    {confirmDelete === l._id && (
+                      <div style={{ position: 'absolute', right: 8, background: '#fff', border: '1px solid #ccc', padding: 8, borderRadius: 6 }}>
+                        <div style={{ marginBottom: 8 }}>Are you sure you want to delete this list? Deleted lists cannot be recovered.</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => deleteList(l._id)} style={{ ...interactiveButton, background: '#c00', color: '#fff' }}>Yeah, Delete It</button>
+                          <button onClick={() => setConfirmDelete(null)} style={{ padding: '6px 10px' }}>No! Don't Delete It!</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SpecificShow() {
   const { showID } = useParams();
   const navigate = useNavigate();
@@ -178,218 +283,247 @@ export default function SpecificShow() {
 
   return (
     <section style={{ padding: 24, color: "#fff" }}>
-      <button onClick={() => navigate(-1)} style={{ marginBottom: 12 }}>
-        ← Back
-      </button>
       <div
         style={{
-          ...popularShowsSection,
           display: "flex",
-          gap: 16,
-          alignItems: "flex-start",
-          color: "#000",
+          flexDirection: "column",
+          alignItems: "center",
         }}
       >
-        {poster ? (
-          <img
-            src={poster}
-            alt={show.name || show.original_name}
-            style={{ width: 300, borderRadius: 8 }}
-          />
-        ) : null}
-        <div style={{ textAlign: "left" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <h1 style={{ marginTop: 0 }}>{show.name || show.original_name}</h1>
-            <div style={{ fontSize: "1rem", fontWeight: "700", color: "#000" }}>
-              {reviews && reviews.length ? (
-                <span>
-                  Average Rating:{" "}
-                  {(
-                    reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) /
-                    reviews.length
-                  ).toFixed(2)}{" "}
-                  (
-                  <a
-                    href="#reviews-section"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const el = document.getElementById("reviews-section");
-                      if (el) el.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    style={{
-                      color: "#000",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {reviews.length}{" "}
-                    {reviews.length === 1 ? "review" : "reviews"}
-                  </a>
-                  )
-                </span>
-              ) : (
-                <span style={{ color: "#000" }}>
-                  (This show does not have any reviews yet.)
-                </span>
-              )}
-            </div>
-          </div>
-
-          <p>{show.overview || "No description available."}</p>
-
-          {genres.length > 0 && (
-            <p>
-              <strong>Genres:</strong> {genres.join(", ")}
-            </p>
-          )}
-
-          {languages.length > 0 && (
-            <p>
-              <strong>Languages:</strong> {languages.join(", ")}
-            </p>
-          )}
-
-          {show.homepage && (
-            <p>
-              <strong>Official site:</strong>{" "}
-              <a href={show.homepage} target="_blank" rel="noreferrer">
-                {show.homepage}
-              </a>
-            </p>
-          )}
-          <p>
-            <strong>First air date:</strong> {show.first_air_date || "N/A"}
-          </p>
-          <p>
-            <strong>Seasons:</strong> {show.number_of_seasons ?? "N/A"}
-          </p>
-          <p>
-            <strong>Episodes:</strong> {show.number_of_episodes ?? "N/A"}
-          </p>
-          {/* Season selector and details */}
-          {Array.isArray(show.seasons) && show.seasons.length > 1 && (
-            <div style={{ marginTop: 12 }}>
-              <label>
-                <strong>Season:</strong>{" "}
-                <select
-                  value={selectedSeason}
-                  onChange={(e) => setSelectedSeason(Number(e.target.value))}
-                >
-                  {show.seasons.map((s) => (
-                    <option key={s.season_number} value={s.season_number}>
-                      {s.name || `Season ${s.season_number}`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {seasonLoading && <div>Loading season...</div>}
-              {seasonError && <div>Error: {seasonError}</div>}
-              {seasonData && (
-                <div style={{ marginTop: 12 }}>
-                  {seasonData.poster_path && (
-                    <img
-                      src={`https://image.tmdb.org/t/p/w300${seasonData.poster_path}`}
-                      alt={
-                        seasonData.name || `Season ${seasonData.season_number}`
-                      }
-                      style={{
-                        width: 180,
-                        borderRadius: 6,
-                        display: "block",
-                        marginBottom: 8,
+        <button onClick={() => navigate(-1)} style={{ marginBottom: 12 }}>
+          ← Back
+        </button>
+        <div
+          style={{
+            ...popularShowsSection,
+            display: "flex",
+            gap: 16,
+            alignItems: "flex-start",
+            color: "#000",
+            maxWidth: 1100,
+            width: "100%",
+          }}
+        >
+          {poster ? (
+            <img
+              src={poster}
+              alt={show.name || show.original_name}
+              style={{ width: 300, borderRadius: 8 }}
+            />
+          ) : null}
+          <div style={{ textAlign: "left", flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <h1 style={{ marginTop: 0 }}>
+                {show.name || show.original_name}
+              </h1>
+              {/* Lists dropdown: top-right of show info header */}
+              <div style={{ marginLeft: 'auto' }}>
+                <ListDropdown showID={showID} />
+              </div>
+              <div
+                style={{ fontSize: "1rem", fontWeight: "700", color: "#000" }}
+              >
+                {reviews && reviews.length ? (
+                  <span>
+                    Average Rating:{" "}
+                    {(
+                      reviews.reduce((s, r) => s + (Number(r.rating) || 0), 0) /
+                      reviews.length
+                    ).toFixed(2)}{" "}
+                    (
+                    <a
+                      href="#reviews-section"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const el = document.getElementById("reviews-section");
+                        if (el) el.scrollIntoView({ behavior: "smooth" });
                       }}
-                    />
-                  )}
-                  {seasonData.name && (
-                    <div>
-                      <strong>{seasonData.name}</strong>
-                    </div>
-                  )}
-                  {typeof seasonData.episode_count === "number" && (
-                    <div>Episodes: {seasonData.episode_count}</div>
-                  )}
-                  {seasonData.overview && <p>{seasonData.overview}</p>}
+                      style={{
+                        color: "#000",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {reviews.length}{" "}
+                      {reviews.length === 1 ? "review" : "reviews"}
+                    </a>
+                    )
+                  </span>
+                ) : (
+                  <span style={{ color: "#000" }}>
+                    (This show does not have any reviews yet.)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <p>{show.overview || "No description available."}</p>
+
+            {genres.length > 0 && (
+              <p>
+                <strong>Genres:</strong> {genres.join(", ")}
+              </p>
+            )}
+
+            {languages.length > 0 && (
+              <p>
+                <strong>Languages:</strong> {languages.join(", ")}
+              </p>
+            )}
+
+            {show.homepage && (
+              <p>
+                <strong>Official site:</strong>{" "}
+                <a href={show.homepage} target="_blank" rel="noreferrer">
+                  {show.homepage}
+                </a>
+              </p>
+            )}
+            <p>
+              <strong>First air date:</strong> {show.first_air_date || "N/A"}
+            </p>
+            <p>
+              <strong>Seasons:</strong> {show.number_of_seasons ?? "N/A"}
+            </p>
+            <p>
+              <strong>Episodes:</strong> {show.number_of_episodes ?? "N/A"}
+            </p>
+            {/* Season selector and details */}
+            {Array.isArray(show.seasons) && show.seasons.length > 1 && (
+              <div style={{ marginTop: 12 }}>
+                <label>
+                  <strong>Season:</strong>{" "}
+                  <select
+                    value={selectedSeason}
+                    onChange={(e) => setSelectedSeason(Number(e.target.value))}
+                  >
+                    {show.seasons.map((s) => (
+                      <option key={s.season_number} value={s.season_number}>
+                        {s.name || `Season ${s.season_number}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {seasonLoading && <div>Loading season...</div>}
+                {seasonError && <div>Error: {seasonError}</div>}
+                {seasonData && (
+                  <div style={{ marginTop: 12 }}>
+                    {seasonData.poster_path && (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w300${seasonData.poster_path}`}
+                        alt={
+                          seasonData.name ||
+                          `Season ${seasonData.season_number}`
+                        }
+                        style={{
+                          width: 180,
+                          borderRadius: 6,
+                          display: "block",
+                          marginBottom: 8,
+                        }}
+                      />
+                    )}
+                    {seasonData.name && (
+                      <div>
+                        <strong>{seasonData.name}</strong>
+                      </div>
+                    )}
+                    {typeof seasonData.episode_count === "number" && (
+                      <div>Episodes: {seasonData.episode_count}</div>
+                    )}
+                    {seasonData.overview && <p>{seasonData.overview}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Episodes section for selected season */}
+        <div
+          style={{
+            ...popularShowsSection,
+            marginTop: 20,
+            color: "#000",
+            maxWidth: 1100,
+            width: "100%",
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>Episodes - Season {selectedSeason}</h3>
+          {seasonLoading && <div>Loading episodes...</div>}
+          {seasonError && <div>Error: {seasonError}</div>}
+          {seasonData && Array.isArray(seasonData.episodes) && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(1, 1fr)",
+                gap: 12,
+              }}
+            >
+              {seasonData.episodes.map((ep) => (
+                <div
+                  key={ep.id}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "60px 240px 1fr 140px",
+                    border: "1px solid #000",
+                  }}
+                >
+                  <div style={{ borderRight: "1px solid #000", padding: 8 }}>
+                    <strong>#{ep.episode_number}</strong>
+                  </div>
+                  <div style={{ borderRight: "1px solid #000", padding: 8 }}>
+                    <strong>{ep.name}</strong>
+                  </div>
+                  <div style={{ borderRight: "1px solid #000", padding: 8 }}>
+                    {ep.overview}
+                  </div>
+                  <div style={{ padding: 8 }}>{ep.air_date || "N/A"}</div>
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>
-      </div>
-      {/* Episodes section for selected season */}
-      <div style={{ ...popularShowsSection, marginTop: 20, color: "#000" }}>
-        <h3 style={{ marginTop: 0 }}>Episodes - Season {selectedSeason}</h3>
-        {seasonLoading && <div>Loading episodes...</div>}
-        {seasonError && <div>Error: {seasonError}</div>}
-        {seasonData && Array.isArray(seasonData.episodes) && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(1, 1fr)",
-              gap: 12,
-            }}
-          >
-            {seasonData.episodes.map((ep) => (
-              <div
-                key={ep.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "60px 240px 1fr 140px",
-                  border: "1px solid #000",
-                }}
-              >
-                <div style={{ borderRight: "1px solid #000", padding: 8 }}>
-                  <strong>#{ep.episode_number}</strong>
-                </div>
-                <div style={{ borderRight: "1px solid #000", padding: 8 }}>
-                  <strong>{ep.name}</strong>
-                </div>
-                <div style={{ borderRight: "1px solid #000", padding: 8 }}>
-                  {ep.overview}
-                </div>
-                <div style={{ padding: 8 }}>{ep.air_date || "N/A"}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Reviews section */}
-      <div
-        style={{
-          ...popularShowsSection,
-          marginTop: 20,
-          color: "#000",
-          background: "#fff4b5",
-        }}
-        id="reviews-section"
-      >
-        <h3 style={{ marginTop: 0 }}>Reviews</h3>
-        <div style={{ padding: 12 }}>
-          {isSignedIn ? (
-            <ReviewForm
-              showID={showID}
-              onNewReview={() => fetchReviews()}
-              refreshAuth={refresh}
-            />
-          ) : (
-            <div style={{ marginBottom: 12 }}>
-              <em>Please sign in to leave a review.</em>
-            </div>
-          )}
-
-          <div style={{ marginTop: 12 }}>
-            {reviewsLoading ? (
-              <div>Loading reviews...</div>
-            ) : reviews.length === 0 ? (
-              <div>No one's left a review yet. You could be the first!</div>
-            ) : (
-              <ReviewList
-                reviews={reviews}
-                currentUserId={currentUserId}
-                onRefresh={() => fetchReviews()}
+        {/* Reviews section */}
+        <div
+          style={{
+            ...popularShowsSection,
+            marginTop: 20,
+            color: "#000",
+            background: "#fff4b5",
+            maxWidth: 1100,
+            width: "100%",
+          }}
+          id="reviews-section"
+        >
+          <h3 style={{ marginTop: 0 }}>Reviews</h3>
+          <div style={{ padding: 12 }}>
+            {isSignedIn ? (
+              <ReviewForm
+                showID={showID}
+                onNewReview={() => fetchReviews()}
+                refreshAuth={refresh}
               />
+            ) : (
+              <div style={{ marginBottom: 12 }}>
+                <em>Please sign in to leave a review.</em>
+              </div>
             )}
+
+            <div style={{ marginTop: 12 }}>
+              {reviewsLoading ? (
+                <div>Loading reviews...</div>
+              ) : reviews.length === 0 ? (
+                <div>No one's left a review yet. You could be the first!</div>
+              ) : (
+                <ReviewList
+                  reviews={reviews}
+                  currentUserId={currentUserId}
+                  onRefresh={() => fetchReviews()}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -599,10 +733,12 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
   const [localReviews, setLocalReviews] = React.useState(reviews || []);
   const [usernames, setUsernames] = React.useState({});
   const usernameCacheRef = React.useRef(new Map());
+  const [openReplyFor, setOpenReplyFor] = React.useState(null);
+  const { isSignedIn } = useAuth();
+  const [repliesOpenMap, setRepliesOpenMap] = React.useState({});
 
   React.useEffect(() => setLocalReviews(reviews || []), [reviews]);
 
-  // fetch usernames for reviews, simple in-memory cache for this component
   React.useEffect(() => {
     let mounted = true;
     const fetchNames = async () => {
@@ -639,7 +775,6 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
 
   const toggleLike = async (reviewId) => {
     try {
-      // optimistic update
       setLocalReviews((cur) =>
         cur.map((r) => {
           if (String(r._id) !== String(reviewId)) return r;
@@ -656,17 +791,12 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
           return { ...r, likedBy: newLikedBy, likes: newLikes };
         })
       );
-
       const token = localStorage.getItem("token");
       const res = await fetch(
         `http://localhost:8080/api/reviews/${reviewId}/like`,
-        {
-          method: "POST",
-          headers: { Authorization: token },
-        }
+        { method: "POST", headers: { Authorization: token } }
       );
       if (!res.ok) throw new Error("failed to toggle like");
-      // update from server response
       const updated = await res.json();
       setLocalReviews((cur) =>
         cur.map((r) => (String(r._id) === String(updated._id) ? updated : r))
@@ -687,14 +817,19 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
           Array.isArray(r.likedBy) && currentUserId
             ? r.likedBy.some((id) => String(id) === String(currentUserId))
             : false;
+        const idStr =
+          typeof r.userID === "string" ? r.userID : r.userID && r.userID._id;
         return (
           <div
+            id={`review-${r._id}`}
             key={r._id}
             style={{
               border: "1px solid #ccc",
               padding: 8,
               background: "#fff",
               textAlign: "left",
+              position: "relative",
+              paddingBottom: 56,
             }}
           >
             <div
@@ -704,25 +839,21 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
                 alignItems: "center",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <div>
-                    {/* username */}
-                    <a
-                      href={`/user/${r.userID}`}
-                      style={{
-                        color: "#6c2eb6",
-                        fontWeight: 700,
-                        textDecoration: "none",
-                      }}
-                    >
-                      {usernames[String(r.userID)] || "Unknown"}
-                    </a>
-                  </div>
-                </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <a
+                  href={`/user/${idStr}`}
+                  style={{
+                    color: "#6c2eb6",
+                    fontWeight: 700,
+                    textDecoration: "none",
+                  }}
+                >
+                  {usernames[String(idStr)] ||
+                    (r.userID && r.userID.username) ||
+                    "Unknown"}
+                </a>
                 <div style={{ fontWeight: 700 }}>Rating:</div>
                 <div>
-                  {/* render stars for the review rating (no hover) */}
                   {Array.from({ length: 5 }).map((_, i) => {
                     const raw = r.rating - i;
                     const fill = Math.max(0, Math.min(1, raw));
@@ -739,29 +870,705 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
                   })}
                 </div>
               </div>
-              <div>
-                <button
-                  onClick={() => toggleLike(r._id)}
-                  style={{
-                    marginRight: 8,
-                    ...interactiveButton,
-                    height: 28,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 68,
-                    padding: "0 6px",
-                  }}
-                >
-                  <span style={{ marginRight: 6 }}>{liked ? "♥" : "♡"}</span>
-                  <span>{r.likes || 0}</span>
-                </button>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                }}
+              >
+                <div style={{ color: "#666" }}>
+                  {r.created_at || r.createdAt
+                    ? new Date(r.created_at || r.createdAt).toLocaleString()
+                    : ""}
+                </div>
+                <div>
+                  <button
+                    onClick={() => toggleLike(r._id)}
+                    style={{
+                      marginRight: 8,
+                      ...interactiveButton,
+                      height: 28,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 68,
+                      padding: "0 6px",
+                    }}
+                  >
+                    <span style={{ marginRight: 6 }}>{liked ? "♥" : "♡"}</span>
+                    <span>{r.likes || 0}</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div style={{ marginTop: 6, textAlign: "left" }}>{r.comment}</div>
+            {/* absolute bottom-right reply button (always present) */}
+            <div style={{ position: "absolute", right: 8, bottom: 8 }}>
+              {isSignedIn && !repliesOpenMap[String(r._id)] && (
+                <button
+                  onClick={() => setOpenReplyFor(String(r._id))}
+                  style={{ ...interactiveButton }}
+                >
+                  Reply
+                </button>
+              )}
+            </div>
+
+            {/* inline reply form inside the review card when requested (stretches across parent box) */}
+            {openReplyFor === String(r._id) && (
+              <div style={{ marginTop: 12 }}>
+                <InlineReplyForm
+                  parentID={r._id}
+                  parentModel={"Review"}
+                  onPosted={() => {
+                    setOpenReplyFor(null);
+                    if (onRefresh) onRefresh();
+                  }}
+                  onClose={() => setOpenReplyFor(null)}
+                  indentLevel={0}
+                />
+              </div>
+            )}
+
+            <div style={{ marginTop: 12 }}>
+              <ReviewReplies
+                reviewId={r._id}
+                onOpenReply={(id) => setOpenReplyFor(String(id))}
+                onOpenChange={(isOpen) =>
+                  setRepliesOpenMap((prev) => ({
+                    ...prev,
+                    [String(r._id)]: !!isOpen,
+                  }))
+                }
+              />
+            </div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ReviewReplies({ reviewId, onOpenReply, onOpenChange }) {
+  const [open, setOpen] = React.useState(false);
+  const [replies, setReplies] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const { isSignedIn, userId: currentUserId } = useAuth();
+  const [replyFormOpen, setReplyFormOpen] = React.useState(false);
+
+  const fetchReplies = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `http://localhost:8080/api/replies?parentID=${encodeURIComponent(
+          reviewId
+        )}`
+      );
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      setReplies(Array.isArray(data.replies) ? data.replies : []);
+    } catch (e) {
+      console.error("fetch replies", e);
+      setReplies([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggle = () => {
+    if (!open) fetchReplies();
+    const next = !open;
+    setOpen(next);
+    if (onOpenChange) onOpenChange(next);
+  };
+
+  // preload reply list/count so the toggle can be shown on page load
+  // NOTE: keep hooks (useEffect) in the same order on every render
+  React.useEffect(() => {
+    fetchReplies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewId]);
+
+  // we always render a Reply control; if there are zero replies we still show a compact Reply button
+
+  return (
+    <div>
+      {/* Toggle text only is clickable; surrounding container not */}
+      <div>
+        {replies.length > 0 ? (
+          <span
+            style={{
+              cursor: "pointer",
+              color: "#6c2eb6",
+              textDecoration: "underline",
+            }}
+            onClick={toggle}
+          >
+            {!open ? (
+              <span>{`View ${replies.length} ${
+                replies.length === 1 ? "Reply" : "Replies"
+              }`}</span>
+            ) : (
+              <span>Hide Replies</span>
+            )}
+          </span>
+        ) : null}
+      </div>
+
+      {/* when closed, the review card itself renders the compact bottom-right Reply button; do not duplicate it here */}
+
+      {/* when open, show Reply button above the replies */}
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          {/* Reply button above replies; clicking opens the inline form only when pressed */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            {isSignedIn && !replyFormOpen && (
+              <button onClick={() => setReplyFormOpen(true)} style={{ ...interactiveButton, padding: '6px 10px' }}>Reply</button>
+            )}
+          </div>
+
+          {replyFormOpen && (
+            <div style={{ marginBottom: 8 }}>
+              <InlineReplyForm
+                parentID={reviewId}
+                parentModel={'Review'}
+                indentLevel={0}
+                onPosted={() => {
+                  fetchReplies();
+                  setReplyFormOpen(false);
+                }}
+                onClose={() => setReplyFormOpen(false)}
+              />
+            </div>
+          )}
+
+          {loading ? (
+            <div>Loading replies...</div>
+          ) : (
+            <RepliesList
+              replies={replies}
+              parentReviewId={reviewId}
+              onPosted={fetchReplies}
+              currentUserId={currentUserId}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Recursive replies renderer
+function RepliesList({ replies, parentReviewId, level = 0, onPosted }) {
+  const [openReplyFor, setOpenReplyFor] = React.useState(null);
+  const [childrenState, setChildrenState] = React.useState({}); // id -> { open, loading, replies }
+
+  const fetchChildren = async (parentId, { preloadOnly = false } = {}) => {
+    setChildrenState((s) => ({
+      ...s,
+      [parentId]: { ...(s[parentId] || {}), loading: true },
+    }));
+    try {
+      const res = await fetch(
+        `http://localhost:8080/api/replies?parentID=${encodeURIComponent(
+          parentId
+        )}`
+      );
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      const list = Array.isArray(data.replies) ? data.replies : [];
+      setChildrenState((s) => ({
+        ...s,
+        [parentId]: {
+          ...(s[parentId] || {}),
+          loading: false,
+          replies: list,
+          open: preloadOnly ? false : list.length > 0,
+        },
+      }));
+    } catch (e) {
+      console.error("fetch child replies", e);
+      setChildrenState((s) => ({
+        ...s,
+        [parentId]: {
+          ...(s[parentId] || {}),
+          loading: false,
+          replies: [],
+          open: false,
+        },
+      }));
+    }
+  };
+
+  const toggleChildren = (parentId) => {
+    const st = childrenState[parentId];
+    if (!st) return fetchChildren(parentId);
+    if (st.open) {
+      setChildrenState((s) => ({ ...s, [parentId]: { ...st, open: false } }));
+    } else {
+      // already have replies loaded (from preload), just open
+      setChildrenState((s) => ({ ...s, [parentId]: { ...st, open: true } }));
+    }
+  };
+
+  // preload child replies count for each reply so we can show "View N Replies" toggles immediately
+  React.useEffect(() => {
+    if (!Array.isArray(replies) || replies.length === 0) return;
+    replies.forEach((rep) => {
+      if (!childrenState[rep._id]) {
+        // preload but do not open
+        fetchChildren(rep._id, { preloadOnly: true });
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replies]);
+
+  return (
+    <div>
+      {replies.map((rep) => (
+        <div
+          key={rep._id}
+          style={{ marginLeft: 24 * (level + 1), marginTop: 8 }}
+        >
+          <div
+            id={`reply-${rep._id}`}
+            style={{ border: "1px solid #ccc", padding: 8, background: "#fff" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <a
+                  href={`/user/${
+                    (rep.userID && (rep.userID._id || rep.userID)) || ""
+                  }`}
+                  style={{
+                    color: "#6c2eb6",
+                    fontWeight: 700,
+                    textDecoration: "none",
+                  }}
+                >
+                  {(rep.userID && rep.userID.username) || String(rep.userID)}
+                </a>
+                <div style={{ color: "#444" }}>
+                  responded to{" "}
+                  {rep.parentID &&
+                  rep.parentID.userID &&
+                  (rep.parentID.userID.username ||
+                    String(rep.parentID.userID)) ? (
+                    <a
+                      href={`#${
+                        rep.parentID && rep.parentID._id
+                          ? `${
+                              rep.parentModel === "Review"
+                                ? `review-${rep.parentID._id}`
+                                : `reply-${rep.parentID._id}`
+                            }`
+                          : parentReviewId
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const targetId =
+                          rep.parentID && rep.parentID._id
+                            ? rep.parentModel === "Review"
+                              ? `review-${rep.parentID._id}`
+                              : `reply-${rep.parentID._id}`
+                            : `review-${parentReviewId}`;
+                        const el = document.getElementById(targetId);
+                        if (el) {
+                          const orig = el.style.transition || "";
+                          el.style.transition = "box-shadow 0.2s ease";
+                          el.style.boxShadow = "0 0 0 3px rgba(108,46,182,0.6)";
+                          setTimeout(() => {
+                            el.style.boxShadow = "";
+                            el.style.transition = orig;
+                          }, 1000);
+                          el.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                          });
+                        }
+                      }}
+                      style={{ color: "#6c2eb6" }}
+                    >
+                      {rep.parentID.userID.username ||
+                        String(rep.parentID.userID)}
+                      's post
+                    </a>
+                  ) : (
+                    <span>original post</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ color: "#666" }}>
+                {new Date(rep.created_at || rep.createdAt).toLocaleString()}
+              </div>
+            </div>
+            <div style={{ marginTop: 6 }}>{rep.comment}</div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: 8,
+              }}
+            >
+              <div />
+              <div>
+                <ReplyLikeAndButton
+                  reply={rep}
+                  onPosted={onPosted}
+                  indentLevel={level + 1}
+                  onOpenReply={(id) => setOpenReplyFor(String(id))}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* inline reply form for replying to this reply */}
+          {openReplyFor === String(rep._id) && (
+            <div style={{ marginTop: 8 }}>
+              <InlineReplyForm
+                parentID={rep._id}
+                parentModel={"Reply"}
+                onPosted={() => {
+                  setOpenReplyFor(null);
+                  if (onPosted) onPosted();
+                }}
+                onClose={() => setOpenReplyFor(null)}
+                indentLevel={level + 1}
+              />
+            </div>
+          )}
+
+          {/* View/hide replies to this reply (fetch on demand). Don't show anything if there are 0 child replies. */}
+          <div style={{ marginLeft: 8, marginTop: 6 }}>
+            {childrenState[rep._id] && childrenState[rep._id].loading && (
+              <div>Loading replies...</div>
+            )}
+
+            {childrenState[rep._id] &&
+              !childrenState[rep._id].loading &&
+              childrenState[rep._id].replies &&
+              childrenState[rep._id].replies.length > 0 && (
+                <div>
+                  <div
+                    style={{
+                      cursor: "pointer",
+                      color: "#6c2eb6",
+                      textDecoration: "underline",
+                    }}
+                    onClick={() => toggleChildren(rep._id)}
+                  >
+                    {!childrenState[rep._id].open
+                      ? `View ${childrenState[rep._id].replies.length} ${
+                          childrenState[rep._id].replies.length === 1
+                            ? "Reply"
+                            : "Replies"
+                        }`
+                      : "Hide Replies"}
+                  </div>
+                  {childrenState[rep._id].open && (
+                    <div style={{ marginTop: 8 }}>
+                      <RepliesList
+                        replies={childrenState[rep._id].replies}
+                        parentReviewId={parentReviewId}
+                        level={level + 1}
+                        onPosted={onPosted}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Bottom-right reply button + toggled form (styled similar to ReviewForm but only comment)
+function BottomRightReply({
+  parentID,
+  parentModel,
+  onPosted,
+  indentLevel = 0,
+  compact = false,
+}) {
+  const [open, setOpen] = React.useState(false);
+  const { isSignedIn } = useAuth();
+
+  if (!isSignedIn) return null;
+
+  // compact variant: show a small Reply button which opens the inline form
+  if (compact) {
+    return (
+      <div>
+        {!open ? (
+          <button
+            onClick={() => setOpen(true)}
+            style={{ ...interactiveButton, padding: "4px 8px", fontSize: 12 }}
+          >
+            Reply
+          </button>
+        ) : (
+          <div style={{ marginTop: 8 }}>
+            <InlineReplyForm
+              parentID={parentID}
+              parentModel={parentModel}
+              indentLevel={indentLevel}
+              onPosted={() => {
+                setOpen(false);
+                if (onPosted) onPosted();
+              }}
+              onClose={() => setOpen(false)}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative", minHeight: 0 }}>
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          style={{ ...interactiveButton, padding: "6px 10px" }}
+        >
+          Reply
+        </button>
+      ) : (
+        <div style={{ marginTop: 8 }}>
+          <InlineReplyForm
+            parentID={parentID}
+            parentModel={parentModel}
+            indentLevel={indentLevel}
+            onPosted={() => {
+              setOpen(false);
+              if (onPosted) onPosted();
+            }}
+            onClose={() => setOpen(false)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Combines a like button for replies and the Reply button/form
+function ReplyLikeAndButton({ reply, onPosted, indentLevel = 0, onOpenReply }) {
+  const { isSignedIn, userId: currentUserId } = useAuth();
+  const [local, setLocal] = React.useState(reply);
+  React.useEffect(() => setLocal(reply), [reply]);
+
+  const liked =
+    Array.isArray(local.likedBy) && currentUserId
+      ? local.likedBy.some((id) => String(id) === String(currentUserId))
+      : false;
+
+  const toggleLike = async (replyId) => {
+    // optimistic
+    setLocal((cur) => {
+      const has =
+        Array.isArray(cur.likedBy) && currentUserId
+          ? cur.likedBy.some((id) => String(id) === String(currentUserId))
+          : false;
+      const newLikedBy = has
+        ? cur.likedBy.filter((id) => String(id) !== String(currentUserId))
+        : [...(cur.likedBy || []), currentUserId];
+      const newLikes = has
+        ? Math.max(0, (cur.likes || 0) - 1)
+        : (cur.likes || 0) + 1;
+      return { ...cur, likedBy: newLikedBy, likes: newLikes };
+    });
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `http://localhost:8080/api/replies/${replyId}/like`,
+        { method: "POST", headers: { Authorization: token } }
+      );
+      if (!res.ok) throw new Error("failed");
+      const updated = await res.json();
+      setLocal(updated);
+    } catch (e) {
+      console.error("reply like failed", e);
+      // rollback by re-fetching parent list
+      if (onPosted) onPosted();
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <button
+        onClick={() => toggleLike(reply._id)}
+        style={{
+          ...interactiveButton,
+          height: 28,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 68,
+          padding: "0 6px",
+        }}
+      >
+        <span style={{ marginRight: 6 }}>{liked ? "♥" : "♡"}</span>
+        <span>{local.likes || 0}</span>
+      </button>
+      {isSignedIn && (
+        <button
+          onClick={() => onOpenReply && onOpenReply(reply._id)}
+          style={{ ...interactiveButton, padding: "6px 10px" }}
+        >
+          Reply
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ReplyForm({ parentID, parentModel, onPosted }) {
+  const [text, setText] = React.useState("");
+  const [posting, setPosting] = React.useState(false);
+  const { isSignedIn } = useAuth();
+
+  const submit = async () => {
+    if (!text.trim()) return;
+    setPosting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8080/api/replies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: token },
+        body: JSON.stringify({ parentID, parentModel, comment: text }),
+      });
+      if (res.status === 401) {
+        alert("Please sign in.");
+        return;
+      }
+      if (!res.ok) {
+        alert("Failed to post reply");
+        return;
+      }
+      setText("");
+      if (onPosted) onPosted();
+    } catch (e) {
+      console.error("post reply", e);
+      alert("Failed to post reply");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  if (!isSignedIn) return null;
+
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Write a reply..."
+        style={{ minWidth: 240 }}
+      />
+      <button
+        onClick={submit}
+        disabled={posting}
+        style={{ ...interactiveButton }}
+      >
+        {posting ? "Posting..." : "Reply"}
+      </button>
+    </div>
+  );
+}
+
+// Inline reply form that stretches across the parent post box and matches ReviewForm styling
+function InlineReplyForm({
+  parentID,
+  parentModel,
+  onPosted,
+  onClose,
+  indentLevel = 0,
+}) {
+  const [text, setText] = React.useState("");
+  const [posting, setPosting] = React.useState(false);
+  const { isSignedIn } = useAuth();
+
+  const submit = async () => {
+    if (!text.trim()) return;
+    setPosting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8080/api/replies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: token },
+        body: JSON.stringify({ parentID, parentModel, comment: text }),
+      });
+      if (res.status === 401) {
+        alert("Please sign in.");
+        return;
+      }
+      if (!res.ok) {
+        alert("Failed to post reply");
+        return;
+      }
+      setText("");
+      if (onPosted) onPosted();
+    } catch (e) {
+      console.error("post reply", e);
+      alert("Failed to post reply");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  if (!isSignedIn) return null;
+
+  return (
+    <div
+      style={{
+        border: "1px solid #ddd",
+        padding: 12,
+        background: "#fff",
+        marginLeft: indentLevel * 24,
+        boxSizing: "border-box",
+        width: "100%",
+      }}
+    >
+      <div style={{ fontWeight: 700, marginBottom: 6 }}>Reply</div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        style={{ boxSizing: "border-box", width: "100%", minHeight: 100 }}
+      />
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          justifyContent: "flex-end",
+          marginTop: 8,
+        }}
+      >
+        <button
+          onClick={() => {
+            if (onClose) onClose();
+            setText("");
+          }}
+          style={{ padding: "6px 10px" }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={submit}
+          disabled={posting}
+          style={{ ...interactiveButton }}
+        >
+          {posting ? "Posting..." : "Submit"}
+        </button>
+      </div>
     </div>
   );
 }

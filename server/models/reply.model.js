@@ -30,7 +30,7 @@ const replySchema = new Schema(
     },
     likedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
-  { timestamps: true }
+  { timestamps: true, createdAt: "created_at", updatedAt: "updated_at" }
 );
 
 export default model("Reply", replySchema);
