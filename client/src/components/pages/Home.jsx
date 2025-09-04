@@ -43,14 +43,17 @@ export default function Home() {
           }}
         >
           <li>
-            <strong>How do I add a show to my list?</strong>
+            <strong>How do I add shows to my lists?</strong>
             <br />
-            Use the search bar and click "Add to List" on any show page.
+            Find the page for the show you want to add. There are three dots
+            that will bring up a menu to add and remove that show from any of
+            your lists!{" "}
           </li>
           <li>
             <strong>Can I write reviews?</strong>
             <br />
-            Yes! Visit any show page and leave your thoughts.
+            Yes! Visit any show page and leave your thoughts, along with a
+            rating.
           </li>
           <li>
             <strong>Is ShowPal free?</strong>

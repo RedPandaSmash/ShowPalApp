@@ -52,10 +52,16 @@ function ListDropdown({ showID }) {
   const [lists, setLists] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(null); // list id pending deletion
+  const [hovering, setHovering] = React.useState(false);
+  const [hoverDeleteId, setHoverDeleteId] = React.useState(null);
+  const [creatingName, setCreatingName] = React.useState("");
+  const [creating, setCreating] = React.useState(false);
+  const modalRef = React.useRef(null);
 
   const fetchLists = async () => {
     setLoading(true);
     try {
+      // previous behavior: fetch public lists (server will return user's lists for mine=true without Authorization)
       const res = await fetch(`http://localhost:8080/api/lists?mine=true`);
       if (!res.ok) throw new Error("failed");
       const data = await res.json();
@@ -73,27 +79,59 @@ function ListDropdown({ showID }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isSignedIn]);
 
-  const createList = async () => {
-    const name = prompt("Create a new list name:");
+  // lock page scroll when modal is open
+  React.useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  // close modal when clicking outside the modal content
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (!modalRef.current) return;
+      if (!modalRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const createList = async (e) => {
+    e && e.preventDefault();
+    const name = creatingName && creatingName.trim();
     if (!name) return;
+    setCreating(true);
     try {
       const token = localStorage.getItem("token");
+      // revert: send raw token in Authorization header (previous working behavior)
       const res = await fetch("http://localhost:8080/api/lists", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token },
         body: JSON.stringify({ name, shows: [String(showID)] }),
       });
       if (!res.ok) throw new Error("failed create");
+      setCreatingName("");
       await fetchLists();
     } catch (e) {
       console.error("create list", e);
       alert("Failed to create list");
+    } finally {
+      setCreating(false);
     }
   };
 
   const toggleShowInList = async (listId) => {
     try {
       const token = localStorage.getItem("token");
+      // revert: send raw token in Authorization header
       const res = await fetch(
         `http://localhost:8080/api/lists/${listId}/toggle-show`,
         {
@@ -113,155 +151,290 @@ function ListDropdown({ showID }) {
   const deleteList = async (listId) => {
     try {
       const token = localStorage.getItem("token");
+      // revert: send raw token in Authorization header
       const res = await fetch(`http://localhost:8080/api/lists/${listId}`, {
         method: "DELETE",
         headers: { Authorization: token },
       });
-      if (!res.ok && res.status !== 204) throw new Error("failed delete");
+      if (!res.ok && res.status !== 204) {
+        const txt = await res.text().catch(() => "");
+        console.error("deleteList failed", res.status, txt);
+        throw new Error(`failed delete: ${res.status} ${txt}`);
+      }
       setConfirmDelete(null);
       await fetchLists();
     } catch (e) {
       console.error("delete list", e);
-      alert("Failed to delete list");
+      alert("Failed to delete list. Check console for server error details.");
     }
   };
 
   return (
     <div style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen((s) => !s)}
-        style={{
-          background: "#6c2eb6",
-          color: "#ffd500",
-          border: "none",
-          padding: 8,
-          borderRadius: 6,
-        }}
-        aria-haspopup="true"
-        aria-expanded={open}
-        title="Lists"
+      <div
+        style={{ position: "relative", display: "inline-block" }}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
       >
-        {/* three vertical yellow dots */}
-        <span style={{ display: "inline-block", transform: "translateY(2px)" }}>
-          ⋮
-        </span>
-      </button>
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            background: "#6c2eb6",
+            color: "#ffd500",
+            border: "none",
+            padding: 8,
+            borderRadius: 6,
+          }}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          title="Lists"
+        >
+          <span
+            style={{ display: "inline-block", transform: "translateY(2px)" }}
+          >
+            ⋮
+          </span>
+        </button>
+        {hovering && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              right: 0,
+              marginTop: 6,
+              background: "rgba(0,0,0,0.75)",
+              color: "#fff",
+              padding: "6px 8px",
+              borderRadius: 4,
+              fontSize: 12,
+            }}
+          >
+            Add/Remove show to/from a list
+          </div>
+        )}
+      </div>
+
       {open && (
+        // overlay inside parent bounds; clicking outside modal (the overlay) closes
         <div
           style={{
             position: "absolute",
-            right: 0,
-            top: "110%",
-            width: 320,
-            background: "#fff",
-            color: "#000",
-            border: "1px solid #ddd",
-            borderRadius: 6,
-            padding: 8,
-            boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
-            zIndex: 50,
+            inset: 0,
+            zIndex: 200,
+            background: "transparent",
+            display: "flex",
+            justifyContent: "center",
+            pointerEvents: "auto",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setOpen(false);
           }}
         >
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 8,
-            }}
+            style={{ marginTop: 32, width: 420 }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button onClick={createList} style={{ ...interactiveButton }}>
-                ＋
-              </button>
-              <div style={{ fontWeight: 700 }}>Create A New List</div>
-            </div>
-            <div>
-              <button onClick={() => setOpen(false)} style={{ padding: 4 }}>
+            <div
+              ref={modalRef}
+              style={{
+                width: "100%",
+                background: "#fff",
+                borderRadius: 8,
+                padding: 16,
+                color: "#000",
+                boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
+                position: "relative",
+              }}
+            >
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: 12,
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 18,
+                  cursor: "pointer",
+                }}
+                title="Close"
+              >
                 ✕
               </button>
-            </div>
-          </div>
-          <div style={{ maxHeight: 300, overflowY: "auto" }}>
-            {loading ? (
-              <div>Loading lists...</div>
-            ) : lists.length === 0 ? (
-              <div style={{ color: "#666" }}>You have no lists yet.</div>
-            ) : (
-              lists.map((l) => (
-                <div
-                  key={l._id}
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  marginBottom: 8,
+                  color: "#6c2eb6",
+                }}
+              >
+                Add/Remove this show to your lists!
+              </div>
+
+              {/* create form inline */}
+              <form
+                onSubmit={createList}
+                style={{ display: "flex", gap: 8, marginBottom: 12 }}
+              >
+                <input
+                  value={creatingName}
+                  onChange={(e) => setCreatingName(e.target.value)}
+                  placeholder="New list to put this show in"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "6px 4px",
-                    borderBottom: "1px solid #f1f1f1",
+                    flex: 1,
+                    padding: 8,
+                    border: "1px solid #ddd",
+                    borderRadius: 6,
                   }}
+                />
+                <button
+                  type="submit"
+                  disabled={creating}
+                  style={{ ...interactiveButton }}
                 >
-                  <label
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={
-                        Array.isArray(l.shows) &&
-                        l.shows.some((s) => String(s) === String(showID))
-                      }
-                      onChange={() => toggleShowInList(l._id)}
-                    />
-                    <span>{l.name}</span>
-                  </label>
-                  <div>
+                  {creating ? "Creating..." : "Create"}
+                </button>
+              </form>
+              {confirmDelete && (
+                <div style={{ position: "relative", marginBottom: 12 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    Are you sure you want to delete this list? Deleted lists
+                    cannot be recovered.
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
                     <button
-                      onClick={() => setConfirmDelete(l._id)}
+                      onClick={() => deleteList(confirmDelete)}
                       style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#c00",
+                        ...interactiveButton,
+                        background: "#c00",
+                        color: "#fff",
                       }}
                     >
-                      🗑️
+                      Yeah, Delete It
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(null)}
+                      style={{ padding: "6px 10px" }}
+                    >
+                      No! Don't Delete It!
                     </button>
                   </div>
-                  {confirmDelete === l._id && (
+                </div>
+              )}
+
+              <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                {loading ? (
+                  <div>Loading lists...</div>
+                ) : lists.length === 0 ? (
+                  <div style={{ color: "#666" }}>You have no lists yet.</div>
+                ) : (
+                  lists.map((l) => (
                     <div
+                      key={l._id}
                       style={{
-                        position: "absolute",
-                        right: 8,
-                        background: "#fff",
-                        border: "1px solid #ccc",
-                        padding: 8,
-                        borderRadius: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "8px 4px",
+                        borderBottom: "1px solid #f1f1f1",
+                        position: "relative",
                       }}
                     >
-                      <div style={{ marginBottom: 8 }}>
-                        Are you sure you want to delete this list? Deleted lists
-                        cannot be recovered.
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <input
+                          id={`list-checkbox-${l._id}`}
+                          type="checkbox"
+                          checked={
+                            Array.isArray(l.shows) &&
+                            l.shows.some((s) => String(s) === String(showID))
+                          }
+                          readOnly
+                          onClick={() => toggleShowInList(l._id)}
+                          style={{ cursor: "pointer", accentColor: "#6c2eb6" }}
+                        />
+                        <span
+                          onClick={() => toggleShowInList(l._id)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          {l.name}
+                        </span>
                       </div>
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div>
                         <button
-                          onClick={() => deleteList(l._id)}
+                          onClick={() => setConfirmDelete(l._id)}
+                          onMouseEnter={() => setHoverDeleteId(l._id)}
+                          onMouseLeave={() => setHoverDeleteId(null)}
                           style={{
-                            ...interactiveButton,
-                            background: "#c00",
-                            color: "#fff",
+                            background: "transparent",
+                            border: "none",
+                            color: hoverDeleteId === l._id ? "#6c2eb6" : "#666",
+                            cursor: "pointer",
+                            padding: 4,
                           }}
                         >
-                          Yeah, Delete It
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(null)}
-                          style={{ padding: "6px 10px" }}
-                        >
-                          No! Don't Delete It!
+                          {/* SVG trash so color can be styled */}
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            style={{
+                              display: "block",
+                              color:
+                                hoverDeleteId === l._id ? "#6c2eb6" : "#666",
+                            }}
+                          >
+                            <path
+                              d="M3 6h18"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M10 11v6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M14 11v6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M9 4h6l1 2H8l1-2z"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              ))
-            )}
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -430,15 +603,12 @@ export default function SpecificShow() {
               style={{ width: 300, borderRadius: 8 }}
             />
           ) : null}
-          <div style={{ textAlign: "left", flex: 1 }}>
+          <div style={{ textAlign: "left", flex: 1, position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <h1 style={{ marginTop: 0 }}>
                 {show.name || show.original_name}
               </h1>
-              {/* Lists dropdown: top-right of show info header */}
-              <div style={{ marginLeft: "auto" }}>
-                <ListDropdown showID={showID} />
-              </div>
+
               <div
                 style={{ fontSize: "1rem", fontWeight: "700", color: "#000" }}
               >
@@ -473,6 +643,10 @@ export default function SpecificShow() {
                     (This show does not have any reviews yet.)
                   </span>
                 )}
+              </div>
+              {/* Lists modal trigger placed to the right of the rating */}
+              <div style={{ marginLeft: 12 }}>
+                <ListDropdown showID={showID} />
               </div>
             </div>
 
