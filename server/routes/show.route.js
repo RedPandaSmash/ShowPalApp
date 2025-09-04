@@ -3,6 +3,11 @@ import { Router } from "express";
 const router = Router();
 const token = process.env.TMDB_READ_ACCESS_TOKEN;
 const apiKey = process.env.TMDB_API_KEY;
+// Simple in-memory cache for TMDB show metadata (keyed by show id)
+// Value: { data: <object|null>, expiresAt: <timestamp> }
+const SHOW_CACHE_TTL_MS =
+  Number(process.env.SHOW_CACHE_TTL_MS) || 6 * 60 * 60 * 1000; // default 6 hours
+const showCache = new Map();
 
 // GET /api/shows/popular?page=1&language=en-US
 router.get("/popular", async (req, res) => {
@@ -181,6 +186,78 @@ router.get("/:id", async (req, res) => {
     return res.json(data);
   } catch (err) {
     console.error("Error fetching TMDB show by ID:", err);
+    return res.status(500).json({ error: "internal server error" });
+  }
+});
+
+// POST /api/shows/batch  { ids: [id1,id2,...] }
+router.post("/batch", async (req, res) => {
+  const { ids = [] } = req.body || {};
+  if (!Array.isArray(ids))
+    return res.status(400).json({ error: "ids must be an array" });
+  try {
+    const headers = { "Content-Type": "application/json" };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    } else if (apiKey) {
+      // we'll append api_key per-request below
+    } else {
+      return res.status(500).json({ error: "TMDB credentials not configured" });
+    }
+
+    // Prepare results map and dedupe requested ids while preserving order for the response
+    const results = {};
+    const now = Date.now();
+    const uniqueIds = Array.from(new Set(ids));
+
+    // First, populate from cache where possible and collect ids we need to fetch
+    const toFetch = [];
+    for (const id of uniqueIds) {
+      const cached = showCache.get(String(id));
+      if (cached && cached.expiresAt > now) {
+        results[id] = cached.data;
+      } else {
+        toFetch.push(id);
+      }
+    }
+
+    // Fetch missing ids sequentially to avoid bursting TMDB (keeps previous behavior)
+    for (const id of toFetch) {
+      try {
+        const url = new URL(`https://api.themoviedb.org/3/tv/${id}`);
+        if (!token && apiKey) url.searchParams.set("api_key", apiKey);
+        const resp = await fetch(url.toString(), { headers });
+        if (!resp.ok) {
+          // store null in both results and cache (so we won't repeatedly hammer missing ids)
+          results[id] = null;
+          showCache.set(String(id), {
+            data: null,
+            expiresAt: now + SHOW_CACHE_TTL_MS,
+          });
+          continue;
+        }
+        const data = await resp.json();
+        results[id] = data;
+        // Cache successful fetches
+        showCache.set(String(id), { data, expiresAt: now + SHOW_CACHE_TTL_MS });
+      } catch (err) {
+        console.error("batch show fetch error for id", id, err);
+        results[id] = null;
+        showCache.set(String(id), {
+          data: null,
+          expiresAt: now + SHOW_CACHE_TTL_MS,
+        });
+      }
+    }
+
+    // Ensure response includes entries for every requested id (preserve original order and duplicates)
+    const finalResults = {};
+    for (const id of ids) {
+      finalResults[id] = results[id] !== undefined ? results[id] : null;
+    }
+    return res.json({ results: finalResults });
+  } catch (err) {
+    console.error("Error in batch show fetch", err);
     return res.status(500).json({ error: "internal server error" });
   }
 });

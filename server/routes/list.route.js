@@ -70,11 +70,18 @@ router.delete("/:id", validateSession, async (req, res) => {
     if (!list) return res.status(404).json({ error: "List not found" });
     if (String(list.userID) !== String(req.user._id))
       return res.status(403).json({ error: "forbidden" });
-    await list.remove();
+    // use findByIdAndDelete to avoid calling potentially-missing instance methods
+    await List.findByIdAndDelete(req.params.id);
     return res.status(204).send();
   } catch (err) {
-    console.error("delete list error", err);
-    return res.status(500).json({ error: "internal server error" });
+    // log full stack for debugging
+    console.error("delete list error", err && err.stack ? err.stack : err);
+    // return the real error message to the client during dev to help diagnosis
+    return res
+      .status(500)
+      .json({
+        error: err && err.message ? err.message : "internal server error",
+      });
   }
 });
 

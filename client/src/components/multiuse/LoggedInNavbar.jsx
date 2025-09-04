@@ -1,15 +1,19 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router";
 import { navContainer, navList } from "./navbarStyles";
 import {
   interactiveItem,
   interactiveHover,
   interactiveActive,
 } from "./interactiveStyles";
+import { useAuth } from "../../context/AuthContext";
 
 export default function LoggedInNavbar() {
   const [showConfirm, setShowConfirm] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [active, setActive] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState(null);
+  const [activeItem, setActiveItem] = useState(null);
+  const navigate = useNavigate();
+  const { userId } = useAuth();
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -25,14 +29,30 @@ export default function LoggedInNavbar() {
         <li
           style={{
             ...interactiveItem,
-            ...(hovered ? interactiveHover : {}),
-            ...(active ? interactiveActive : {}),
+            ...(hoveredItem === "profile" ? interactiveHover : {}),
+            ...(activeItem === "profile" ? interactiveActive : {}),
+          }}
+          onClick={() => {
+            if (userId) navigate(`/user/${userId}`);
+          }}
+          onMouseEnter={() => setHoveredItem("profile")}
+          onMouseLeave={() => setHoveredItem(null)}
+          onMouseDown={() => setActiveItem("profile")}
+          onMouseUp={() => setActiveItem(null)}
+        >
+          My Profile
+        </li>
+        <li
+          style={{
+            ...interactiveItem,
+            ...(hoveredItem === "logout" ? interactiveHover : {}),
+            ...(activeItem === "logout" ? interactiveActive : {}),
           }}
           onClick={() => setShowConfirm(true)}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          onMouseDown={() => setActive(true)}
-          onMouseUp={() => setActive(false)}
+          onMouseEnter={() => setHoveredItem("logout")}
+          onMouseLeave={() => setHoveredItem(null)}
+          onMouseDown={() => setActiveItem("logout")}
+          onMouseUp={() => setActiveItem(null)}
         >
           Logout
         </li>
