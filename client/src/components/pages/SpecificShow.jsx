@@ -47,7 +47,7 @@ function SVGStar({ fill = 1, size = 18, color = "#e5b800", id }) {
 
 // Dropdown UI for managing lists for the current show
 function ListDropdown({ showID }) {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId: currentUserId } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [lists, setLists] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
@@ -61,11 +61,28 @@ function ListDropdown({ showID }) {
   const fetchLists = async () => {
     setLoading(true);
     try {
-      // previous behavior: fetch public lists (server will return user's lists for mine=true without Authorization)
-      const res = await fetch(`http://localhost:8080/api/lists?mine=true`);
-      if (!res.ok) throw new Error("failed");
-      const data = await res.json();
-      setLists(Array.isArray(data.lists) ? data.lists : []);
+      // Fetch user's regular lists
+      const userListsRes = await fetch(
+        `http://localhost:8080/api/lists?userID=${currentUserId}`
+      );
+      if (!userListsRes.ok) throw new Error("failed to fetch user lists");
+      const userListsData = await userListsRes.json();
+      const userLists = Array.isArray(userListsData.lists)
+        ? userListsData.lists
+        : [];
+
+      // Fetch user's default lists (Watching, Finished, Dropped, Favorites)
+      const defaultListsRes = await fetch(
+        `http://localhost:8080/api/default-lists/${currentUserId}`
+      );
+      if (!defaultListsRes.ok) throw new Error("failed to fetch default lists");
+      const defaultListsData = await defaultListsRes.json();
+      const defaultLists = Array.isArray(defaultListsData)
+        ? defaultListsData
+        : [];
+
+      // Combine both lists
+      setLists([...userLists, ...defaultLists]);
     } catch (e) {
       console.error("fetch lists", e);
       setLists([]);
@@ -131,16 +148,45 @@ function ListDropdown({ showID }) {
   const toggleShowInList = async (listId) => {
     try {
       const token = localStorage.getItem("token");
-      // revert: send raw token in Authorization header
-      const res = await fetch(
-        `http://localhost:8080/api/lists/${listId}/toggle-show`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: token },
-          body: JSON.stringify({ showID: String(showID) }),
-        }
-      );
-      if (!res.ok) throw new Error("failed toggle");
+      const list = lists.find((l) => l._id === listId);
+
+      if (!list) {
+        throw new Error("List not found");
+      }
+
+      // Check if this is a default list (has listType property)
+      if (list.listType) {
+        // Handle default list
+        const res = await fetch(
+          `http://localhost:8080/api/default-lists/${list.listType}/toggle-show`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token,
+            },
+            body: JSON.stringify({ showID: String(showID) }),
+          }
+        );
+
+        if (!res.ok) throw new Error("failed to toggle show in default list");
+      } else {
+        // Handle regular list
+        const res = await fetch(
+          `http://localhost:8080/api/lists/${listId}/toggle-show`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token,
+            },
+            body: JSON.stringify({ showID: String(showID) }),
+          }
+        );
+
+        if (!res.ok) throw new Error("failed toggle");
+      }
+
       await fetchLists();
     } catch (e) {
       console.error("toggle show", e);
@@ -363,72 +409,76 @@ function ListDropdown({ showID }) {
                           onClick={() => toggleShowInList(l._id)}
                           style={{ cursor: "pointer" }}
                         >
-                          {l.name}
+                          {l.listType || l.name}
                         </span>
                       </div>
                       <div>
-                        <button
-                          onClick={() => setConfirmDelete(l._id)}
-                          onMouseEnter={() => setHoverDeleteId(l._id)}
-                          onMouseLeave={() => setHoverDeleteId(null)}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: hoverDeleteId === l._id ? "#6c2eb6" : "#666",
-                            cursor: "pointer",
-                            padding: 4,
-                          }}
-                        >
-                          {/* SVG trash so color can be styled */}
-                          <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
+                        {/* Only show delete button for regular lists, not default lists */}
+                        {!l.listType && (
+                          <button
+                            onClick={() => setConfirmDelete(l._id)}
+                            onMouseEnter={() => setHoverDeleteId(l._id)}
+                            onMouseLeave={() => setHoverDeleteId(null)}
                             style={{
-                              display: "block",
+                              background: "transparent",
+                              border: "none",
                               color:
                                 hoverDeleteId === l._id ? "#6c2eb6" : "#666",
+                              cursor: "pointer",
+                              padding: 4,
                             }}
                           >
-                            <path
-                              d="M3 6h18"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                            <path
-                              d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                            <path
-                              d="M10 11v6"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                            <path
-                              d="M14 11v6"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                            <path
-                              d="M9 4h6l1 2H8l1-2z"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
+                            {/* SVG trash so color can be styled */}
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              style={{
+                                display: "block",
+                                color:
+                                  hoverDeleteId === l._id ? "#6c2eb6" : "#666",
+                              }}
+                            >
+                              <path
+                                d="M3 6h18"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M10 11v6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M14 11v6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M9 4h6l1 2H8l1-2z"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
@@ -499,6 +549,43 @@ export default function SpecificShow() {
   useEffect(() => {
     fetchReviews();
   }, [showID]);
+
+  // Check if URL hash points to a review
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith("#review-")) {
+      const targetReviewId = hash.substring(8); // Remove '#review-'
+
+      // Function to attempt scrolling to the review
+      const attemptScroll = (attempt = 1) => {
+        const reviewElement = document.getElementById(
+          `review-${targetReviewId}`
+        );
+        if (reviewElement) {
+          // Wait for DOM to be fully updated, then scroll to the review
+          setTimeout(() => {
+            reviewElement.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+
+            // Add a highlight effect
+            const originalBoxShadow = reviewElement.style.boxShadow;
+            reviewElement.style.boxShadow = "0 0 0 3px rgba(108,46,182,0.6)";
+            setTimeout(() => {
+              reviewElement.style.boxShadow = originalBoxShadow;
+            }, 2000);
+          }, 500); // Longer delay to ensure reviews are rendered
+        } else if (attempt < 10) {
+          // Element not found yet, try again with longer delay
+          setTimeout(() => attemptScroll(attempt + 1), 200);
+        }
+      };
+
+      // Start attempting to scroll after a delay
+      setTimeout(() => attemptScroll(), 300);
+    }
+  }, [reviews]); // Re-run when reviews change
 
   useEffect(() => {
     let mounted = true;
@@ -1283,6 +1370,165 @@ function ReviewReplies({ reviewId, onOpenReply, onOpenChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewId]);
 
+  // Check if URL hash points to a reply
+  React.useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith("#reply-")) {
+      const targetReplyId = hash.substring(7); // Remove '#reply-'
+
+      // Function to recursively check if this replies section contains the target reply
+      const containsTargetReply = (replyList) => {
+        return replyList.some((reply) => {
+          if (String(reply._id) === String(targetReplyId)) {
+            return true;
+          }
+          // Check nested replies recursively
+          if (reply.replies && reply.replies.length > 0) {
+            return containsTargetReply(reply.replies);
+          }
+          return false;
+        });
+      };
+
+      // Function to find the root review ID by tracing parent chain
+      const findRootReviewId = async (replyId) => {
+        try {
+          // Ensure replyId is a string, not an object
+          const id =
+            typeof replyId === "object" ? replyId._id || replyId : replyId;
+          const res = await fetch(`http://localhost:8080/api/replies/${id}`);
+          if (!res.ok) {
+            if (res.status === 404) {
+              console.warn(`Reply ${id} not found, cannot trace parent chain`);
+              return null;
+            }
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          const reply = await res.json();
+
+          if (reply.parentModel === "Review") {
+            // Ensure parentID is a string
+            return typeof reply.parentID === "object"
+              ? reply.parentID._id || reply.parentID
+              : reply.parentID;
+          } else if (reply.parentModel === "Reply") {
+            // Recursively find the root review
+            const parentId =
+              typeof reply.parentID === "object"
+                ? reply.parentID._id || reply.parentID
+                : reply.parentID;
+            return await findRootReviewId(parentId);
+          }
+        } catch (e) {
+          console.error("Error finding root review:", e);
+          return null;
+        }
+        return null;
+      };
+
+      // Function to get the full path from root review to target reply
+      const getReplyPath = async (targetId, currentPath = []) => {
+        try {
+          // Ensure targetId is a string
+          const id =
+            typeof targetId === "object" ? targetId._id || targetId : targetId;
+          const res = await fetch(`http://localhost:8080/api/replies/${id}`);
+          if (!res.ok) return currentPath;
+          const reply = await res.json();
+
+          const newPath = [reply._id, ...currentPath];
+
+          if (reply.parentModel === "Review") {
+            // Ensure parentID is a string
+            const parentId =
+              typeof reply.parentID === "object"
+                ? reply.parentID._id || reply.parentID
+                : reply.parentID;
+            return [parentId, ...newPath]; // [rootReviewId, ...replyIds]
+          } else if (reply.parentModel === "Reply") {
+            // Ensure parentID is a string
+            const parentId =
+              typeof reply.parentID === "object"
+                ? reply.parentID._id || reply.parentID
+                : reply.parentID;
+            return await getReplyPath(parentId, newPath);
+          }
+        } catch (e) {
+          console.error("Error getting reply path:", e);
+        }
+        return currentPath;
+      };
+
+      // Main logic for handling reply hash
+      const handleReplyHash = async () => {
+        // First check if target is directly in current replies
+        if (containsTargetReply(replies) && !open) {
+          if (replies.length === 0) {
+            await fetchReplies();
+          }
+          setOpen(true);
+          if (onOpenChange) onOpenChange(true);
+          return;
+        }
+
+        // If not found directly, check if this review contains the target in its hierarchy
+        const rootReviewId = await findRootReviewId(targetReplyId);
+        if (String(rootReviewId) === String(reviewId)) {
+          // This is the correct review, expand its replies
+          if (!open) {
+            if (replies.length === 0) {
+              await fetchReplies();
+            }
+            setOpen(true);
+            if (onOpenChange) onOpenChange(true);
+          }
+        }
+      };
+
+      handleReplyHash();
+    }
+  }, [replies, reviewId]); // Re-run when replies or reviewId change
+
+  // Handle scrolling and highlighting after replies are expanded
+  React.useEffect(() => {
+    if (open && replies.length > 0) {
+      const hash = window.location.hash;
+      if (hash && hash.startsWith("#reply-")) {
+        const targetReplyId = hash.substring(7);
+
+        // Use multiple attempts to find and scroll to the reply
+        const attemptScroll = (attempt = 1) => {
+          const replyElement = document.getElementById(
+            `reply-${targetReplyId}`
+          );
+          if (replyElement) {
+            // Wait a bit more for DOM to be fully updated
+            setTimeout(() => {
+              // Scroll to the reply
+              replyElement.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              });
+
+              // Add a highlight effect
+              const originalBoxShadow = replyElement.style.boxShadow;
+              replyElement.style.boxShadow = "0 0 0 3px rgba(108,46,182,0.6)";
+              setTimeout(() => {
+                replyElement.style.boxShadow = originalBoxShadow;
+              }, 2000);
+            }, 200);
+          } else if (attempt < 15) {
+            // Element not found yet, try again with longer delay
+            setTimeout(() => attemptScroll(attempt + 1), 400);
+          }
+        };
+
+        // Start attempting to scroll after a delay
+        setTimeout(() => attemptScroll(), 300);
+      }
+    }
+  }, [open, replies]);
+
   // we always render a Reply control; if there are zero replies we still show a compact Reply button
 
   return (
@@ -1415,6 +1661,98 @@ function RepliesList({ replies, parentReviewId, level = 0, onPosted }) {
       setChildrenState((s) => ({ ...s, [parentId]: { ...st, open: true } }));
     }
   };
+
+  // Check if URL hash points to a reply in this nested replies section
+  React.useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith("#reply-")) {
+      const targetReplyId = hash.substring(7);
+
+      // Function to get the full path from root review to target reply
+      const getReplyPath = async (targetId, currentPath = []) => {
+        try {
+          // Ensure targetId is a string
+          const id =
+            typeof targetId === "object" ? targetId._id || targetId : targetId;
+          const res = await fetch(`http://localhost:8080/api/replies/${id}`);
+          if (!res.ok) return currentPath;
+          const reply = await res.json();
+
+          const newPath = [reply._id, ...currentPath];
+
+          if (reply.parentModel === "Review") {
+            // Ensure parentID is a string
+            const parentId =
+              typeof reply.parentID === "object"
+                ? reply.parentID._id || reply.parentID
+                : reply.parentID;
+            return [parentId, ...newPath]; // [rootReviewId, ...replyIds]
+          } else if (reply.parentModel === "Reply") {
+            // Ensure parentID is a string
+            const parentId =
+              typeof reply.parentID === "object"
+                ? reply.parentID._id || reply.parentID
+                : reply.parentID;
+            return await getReplyPath(parentId, newPath);
+          }
+        } catch (e) {
+          console.error("Error getting reply path:", e);
+        }
+        return currentPath;
+      };
+
+      // Function to expand all replies along the path
+      const expandPath = async (path) => {
+        // path format: [rootReviewId, replyId1, replyId2, ..., targetReplyId]
+        const replyIds = path.slice(1); // Skip root review ID
+
+        // Expand each level sequentially
+        for (let i = 0; i < replyIds.length - 1; i++) {
+          const currentReplyId = replyIds[i];
+          const nextReplyId = replyIds[i + 1];
+
+          // Make sure current reply's children are loaded and expanded
+          if (!childrenState[currentReplyId]?.open) {
+            // Fetch children if not loaded
+            if (!childrenState[currentReplyId]?.replies) {
+              await fetchChildren(currentReplyId, { preloadOnly: false });
+            }
+
+            // Expand the current reply's children
+            setChildrenState((prev) => ({
+              ...prev,
+              [currentReplyId]: {
+                ...prev[currentReplyId],
+                open: true,
+              },
+            }));
+
+            // Wait a bit for state to update
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+        }
+      };
+
+      // Main logic for handling nested reply hash
+      const handleNestedReplyHash = async () => {
+        const path = await getReplyPath(targetReplyId);
+
+        if (path.length > 1) {
+          // Check if the target reply is in this replies section
+          const replyIds = path.slice(1);
+          const isInThisSection = replies.some((reply) =>
+            replyIds.includes(String(reply._id))
+          );
+
+          if (isInThisSection) {
+            await expandPath(path);
+          }
+        }
+      };
+
+      handleNestedReplyHash();
+    }
+  }, [replies, childrenState]);
 
   // preload child replies count for each reply so we can show "View N Replies" toggles immediately
   React.useEffect(() => {

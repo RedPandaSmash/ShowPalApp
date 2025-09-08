@@ -2,6 +2,8 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import userRoutes from "./routes/user.route.js";
+import profileRoutes from "./routes/profile.route.js";
+import defaultListRoutes from "./routes/defaultList.route.js";
 // import roomRoutes from "./routes/room.route.js";
 // import messageRoutes from "./routes/message.route.js";
 import "dotenv/config";
@@ -40,6 +42,12 @@ app.get("/api/health", (req, res) => {
 
 // use user routes
 app.use("/api/users", userRoutes);
+
+// use profile routes
+app.use("/api/profile", profileRoutes);
+
+// use default list routes
+app.use("/api/default-lists", defaultListRoutes);
 
 // use show routes
 app.use("/api/shows", showRoutes);

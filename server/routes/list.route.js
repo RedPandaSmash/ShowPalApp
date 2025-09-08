@@ -1,5 +1,6 @@
 import { Router } from "express";
 import List from "../models/list.model.js";
+import Profile from "../models/profile.model.js";
 import validateSession from "../middleware/validatesession.js";
 
 const router = Router();
@@ -11,6 +12,51 @@ router.post("/", validateSession, async (req, res) => {
     if (!name) return res.status(400).json({ error: "name required" });
     const newList = new List({ userID: req.user._id, name, shows });
     const saved = await newList.save();
+
+    // Add activity to user's profile history
+    try {
+      const activities = [
+        {
+          action: "created_list",
+          targetType: "list",
+          targetID: saved._id,
+          timestamp: new Date(),
+          details: `Created list "${name}" with ${shows.length} shows`,
+        },
+      ];
+
+      // Add activities for each show that was added to the list
+      if (shows && shows.length > 0) {
+        shows.forEach((showID) => {
+          activities.unshift({
+            action: "added_to_list",
+            targetType: "list",
+            targetID: saved._id,
+            showID: String(showID),
+            timestamp: new Date(),
+            details: `Added show ${showID} to new list "${name}"`,
+          });
+        });
+      }
+
+      await Profile.updateOne(
+        { userID: req.user._id },
+        {
+          $push: {
+            history: {
+              $each: activities,
+            },
+          },
+        }
+      );
+    } catch (profileError) {
+      console.error(
+        "Error adding list creation activity to profile:",
+        profileError
+      );
+      // Don't fail the list creation if profile update fails
+    }
+
     return res.status(201).json(saved);
   } catch (err) {
     console.error("create list error", err);
@@ -77,11 +123,9 @@ router.delete("/:id", validateSession, async (req, res) => {
     // log full stack for debugging
     console.error("delete list error", err && err.stack ? err.stack : err);
     // return the real error message to the client during dev to help diagnosis
-    return res
-      .status(500)
-      .json({
-        error: err && err.message ? err.message : "internal server error",
-      });
+    return res.status(500).json({
+      error: err && err.message ? err.message : "internal server error",
+    });
   }
 });
 
@@ -101,11 +145,56 @@ router.post("/:id/toggle-show", validateSession, async (req, res) => {
     if (idx === -1) {
       // add
       list.shows = [...(list.shows || []), String(showID)];
+
+      // Add activity to profile history
+      try {
+        await Profile.updateOne(
+          { userID: req.user._id },
+          {
+            $push: {
+              history: {
+                action: "added_to_list",
+                targetType: "list",
+                targetID: req.params.id,
+                showID: String(showID),
+                timestamp: new Date(),
+                details: `Added show ${showID} to list "${list.name}"`,
+              },
+            },
+          }
+        );
+      } catch (profileError) {
+        console.error("Error adding activity to profile:", profileError);
+      }
     } else {
       // remove
       list.shows = (list.shows || []).filter(
         (s) => String(s) !== String(showID)
       );
+
+      // Add removal activity to profile history
+      try {
+        await Profile.updateOne(
+          { userID: req.user._id },
+          {
+            $push: {
+              history: {
+                action: "removed_from_list",
+                targetType: "list",
+                targetID: req.params.id,
+                showID: String(showID),
+                timestamp: new Date(),
+                details: `Removed show ${showID} from list "${list.name}"`,
+              },
+            },
+          }
+        );
+      } catch (profileError) {
+        console.error(
+          "Error adding removal activity to profile:",
+          profileError
+        );
+      }
     }
     const saved = await list.save();
     return res.status(200).json(saved);
