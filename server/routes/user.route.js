@@ -1,4 +1,6 @@
 import User from "../models/user.model.js";
+import Profile from "../models/profile.model.js";
+import DefaultList from "../models/defaultList.model.js";
 import { Router } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -31,6 +33,16 @@ router.post("/signup", async (req, res) => {
     });
 
     const savedUser = await newUser.save();
+
+    // Create profile for the new user
+    const newProfile = new Profile({
+      userID: savedUser._id,
+      bio: "",
+    });
+    await newProfile.save();
+
+    // Create default lists for the new user
+    await DefaultList.createDefaultListsForUser(savedUser._id);
 
     const token = jwt.sign(
       {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import Review from "../models/review.model.js";
 import User from "../models/user.model.js";
+import Profile from "../models/profile.model.js";
 import validateSession from "../middleware/validatesession.js";
 
 const router = Router();
@@ -15,6 +16,28 @@ router.post("/", validateSession, async (req, res) => {
     const newReview = new Review({ showID, userID, rating, comment, likes: 0 });
 
     const savedReview = await newReview.save();
+
+    // Add activity to user's profile history
+    try {
+      await Profile.updateOne(
+        { userID },
+        {
+          $push: {
+            history: {
+              action: "left_review",
+              targetType: "review",
+              targetID: savedReview._id,
+              showID: showID,
+              timestamp: new Date(),
+              details: `Left a ${rating}-star review for show ${showID}`,
+            },
+          },
+        }
+      );
+    } catch (profileError) {
+      console.error("Error adding review activity to profile:", profileError);
+      // Don't fail the review creation if profile update fails
+    }
 
     return res.status(201).json(savedReview);
   } catch (err) {
@@ -52,11 +75,55 @@ router.post("/:id/like", validateSession, async (req, res) => {
         (id) => String(id) !== String(userId)
       );
       review.likes = Math.max(0, (review.likes || 0) - 1);
+
+      // Remove unlike activity from profile history
+      try {
+        await Profile.updateOne(
+          { userID: userId },
+          {
+            $pull: {
+              history: {
+                action: "liked_review",
+                targetID: review._id.toString(),
+              },
+            },
+          }
+        );
+      } catch (profileError) {
+        console.error(
+          "Error removing review like activity from profile:",
+          profileError
+        );
+      }
     } else {
       // like
       review.likedBy = review.likedBy || [];
       review.likedBy.push(userId);
       review.likes = (review.likes || 0) + 1;
+
+      // Add like activity to user's profile history
+      try {
+        await Profile.updateOne(
+          { userID: userId },
+          {
+            $push: {
+              history: {
+                action: "liked_review",
+                targetType: "review",
+                targetID: review._id.toString(),
+                showID: review.showID,
+                timestamp: new Date(),
+                details: `Liked a review for show ${review.showID}`,
+              },
+            },
+          }
+        );
+      } catch (profileError) {
+        console.error(
+          "Error adding review like activity to profile:",
+          profileError
+        );
+      }
     }
 
     await review.save();

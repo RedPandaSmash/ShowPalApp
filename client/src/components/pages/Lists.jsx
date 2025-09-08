@@ -18,12 +18,14 @@ export default function Lists() {
   const { isSignedIn, userId } = useAuth();
 
   const [myLists, setMyLists] = useState([]);
+  const [defaultLists, setDefaultLists] = useState([]);
   const [recentLists, setRecentLists] = useState([]);
   const [showsMeta, setShowsMeta] = useState({});
   const [loadingMy, setLoadingMy] = useState(false);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [showAllMy, setShowAllMy] = useState(false);
   const [editingList, setEditingList] = useState(null); // { _id, name, shows: [] }
+  const [editingStatusLists, setEditingStatusLists] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
 
   useEffect(() => {
@@ -31,22 +33,45 @@ export default function Lists() {
       if (!isSignedIn || !userId) return;
       setLoadingMy(true);
       try {
-        // GET by userID so server doesn't need req.user on this public route
-        const res = await fetch(
+        // Fetch user's regular lists
+        const userListsRes = await fetch(
           `http://localhost:8080/api/lists?userID=${userId}`
         );
-        if (!res.ok) throw new Error("failed");
-        const data = await res.json();
-        const lists = Array.isArray(data.lists) ? data.lists : [];
-        setMyLists(lists);
-        // gather unique show ids and fetch metadata
+        const userListsData = await userListsRes.json();
+        const userLists = Array.isArray(userListsData.lists)
+          ? userListsData.lists
+          : [];
+        setMyLists(userLists);
+
+        // Fetch user's default lists
+        const defaultListsRes = await fetch(
+          `http://localhost:8080/api/default-lists/${userId}`
+        );
+        const defaultListsData = await defaultListsRes.json();
+        const defaultLists = Array.isArray(defaultListsData)
+          ? defaultListsData
+          : [];
+
+        // Sort default lists in specific order: Watching, Finished, Dropped, Favorites
+        const order = ["Watching", "Finished", "Dropped", "Favorites"];
+        const sortedDefaultLists = defaultLists.sort((a, b) => {
+          return order.indexOf(a.listType) - order.indexOf(b.listType);
+        });
+
+        setDefaultLists(sortedDefaultLists);
+
+        // Gather unique show ids and fetch metadata
+        const allLists = [...userLists, ...sortedDefaultLists];
         const ids = Array.from(
-          new Set(lists.flatMap((l) => (Array.isArray(l.shows) ? l.shows : [])))
+          new Set(
+            allLists.flatMap((l) => (Array.isArray(l.shows) ? l.shows : []))
+          )
         );
         fetchShowsMeta(ids);
       } catch (e) {
         console.error("fetch my lists", e);
         setMyLists([]);
+        setDefaultLists([]);
       } finally {
         setLoadingMy(false);
       }
@@ -137,8 +162,10 @@ export default function Lists() {
     `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='90'><rect width='100%' height='100%' fill='%23ddd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%23666'>No Image</text></svg>`
   )}`;
 
-  const renderListCard = (list) => {
+  const renderListCard = (list, isDefault = false) => {
     const n = list.shows ? list.shows.length : 0;
+    const listName = list.listType || list.name;
+
     return (
       <div key={list._id} style={listCard}>
         <div
@@ -148,63 +175,130 @@ export default function Lists() {
             alignItems: "center",
           }}
         >
-          <strong>{list.name}</strong>
+          <strong>{listName}</strong>
           <small style={{ color: "#666" }}>
             {n === 1 ? "1 show" : `${n} shows`}
           </small>
-          {isSignedIn && String(list.userID) === String(userId) && (
+          {isSignedIn && (
             <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() =>
-                  setEditingList({
-                    _id: list._id,
-                    name: list.name,
-                    shows: Array.isArray(list.shows) ? [...list.shows] : [],
-                  })
-                }
-                style={{
-                  ...interactiveButton,
-                  padding: "6px 8px",
-                  background: "#ffd700",
-                  color: "#6c2eb6",
-                  border: "1px solid #eee",
-                }}
-              >
-                Edit
-              </button>
-              <button
-                onClick={async () => {
-                  if (
-                    !window.confirm("Delete this list? This cannot be undone.")
-                  )
-                    return;
-                  try {
-                    const token = localStorage.getItem("token");
-                    const res = await fetch(
-                      `http://localhost:8080/api/lists/${list._id}`,
-                      { method: "DELETE", headers: { Authorization: token } }
-                    );
-                    if (!res.ok && res.status !== 204)
-                      throw new Error("delete failed");
-                    const refreshed = await fetch(
-                      `http://localhost:8080/api/lists?userID=${userId}`
-                    );
-                    const d = await refreshed.json();
-                    setMyLists(Array.isArray(d.lists) ? d.lists : []);
-                  } catch (e) {
-                    console.error("delete list", e);
-                    alert("Failed to delete list");
+              {list.listType === "Favorites" && (
+                <button
+                  onClick={() =>
+                    setEditingList({
+                      _id: list._id,
+                      name: listName,
+                      listType: list.listType,
+                      shows: Array.isArray(list.shows) ? [...list.shows] : [],
+                      isDefault: true,
+                    })
                   }
-                }}
-                style={{
-                  ...interactiveButton,
-                  padding: "6px 8px",
-                  background: "#c00",
-                  color: "#fff",
-                }}
-              >
-                Delete
-              </button>
+                  style={{
+                    ...interactiveButton,
+                    padding: "6px 8px",
+                    background: "#ffd700",
+                    color: "#6c2eb6",
+                    border: "1px solid #eee",
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+              {["Watching", "Finished", "Dropped"].includes(list.listType) && (
+                <button
+                  onClick={() => {
+                    const watching = defaultLists.find(
+                      (l) => l.listType === "Watching"
+                    );
+                    const finished = defaultLists.find(
+                      (l) => l.listType === "Finished"
+                    );
+                    const dropped = defaultLists.find(
+                      (l) => l.listType === "Dropped"
+                    );
+                    setEditingStatusLists({
+                      watching: watching
+                        ? { ...watching, shows: [...watching.shows] }
+                        : null,
+                      finished: finished
+                        ? { ...finished, shows: [...finished.shows] }
+                        : null,
+                      dropped: dropped
+                        ? { ...dropped, shows: [...dropped.shows] }
+                        : null,
+                    });
+                  }}
+                  style={{
+                    ...interactiveButton,
+                    padding: "6px 8px",
+                    background: "#ffd700",
+                    color: "#6c2eb6",
+                    border: "1px solid #eee",
+                  }}
+                >
+                  Edit Status
+                </button>
+              )}
+              {!list.listType && (
+                <>
+                  <button
+                    onClick={() =>
+                      setEditingList({
+                        _id: list._id,
+                        name: listName,
+                        shows: Array.isArray(list.shows) ? [...list.shows] : [],
+                        isDefault: false,
+                      })
+                    }
+                    style={{
+                      ...interactiveButton,
+                      padding: "6px 8px",
+                      background: "#ffd700",
+                      color: "#6c2eb6",
+                      border: "1px solid #eee",
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (
+                        !window.confirm(
+                          "Delete this list? This cannot be undone."
+                        )
+                      )
+                        return;
+                      try {
+                        const token = localStorage.getItem("token");
+                        const res = await fetch(
+                          `http://localhost:8080/api/lists/${list._id}`,
+                          {
+                            method: "DELETE",
+                            headers: { Authorization: token },
+                          }
+                        );
+                        if (!res.ok && res.status !== 204)
+                          throw new Error("delete failed");
+                        const refreshed = await fetch(
+                          `http://localhost:8080/api/lists?userID=${userId}`
+                        );
+                        const d = await refreshed.json();
+                        setMyLists(Array.isArray(d.lists) ? d.lists : []);
+                      } catch (e) {
+                        console.error("delete list", e);
+                        alert("Failed to delete list");
+                      }
+                    }}
+                    style={{
+                      ...interactiveButton,
+                      padding: "6px 8px",
+                      background: "#c00",
+                      color: "#fff",
+                    }}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -288,17 +382,19 @@ export default function Lists() {
             }}
           >
             <h3>Edit List</h3>
-            <div style={{ marginBottom: 12 }}>
-              <label>
-                Name:{" "}
-                <input
-                  value={editingList.name}
-                  onChange={(e) =>
-                    setEditingList({ ...editingList, name: e.target.value })
-                  }
-                />
-              </label>
-            </div>
+            {!editingList.isDefault && (
+              <div style={{ marginBottom: 12 }}>
+                <label>
+                  Name:{" "}
+                  <input
+                    value={editingList.name}
+                    onChange={(e) =>
+                      setEditingList({ ...editingList, name: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+            )}
             <div>
               <strong>Shows</strong>
               <div
@@ -423,27 +519,60 @@ export default function Lists() {
                 onClick={async () => {
                   try {
                     const token = localStorage.getItem("token");
-                    const res = await fetch(
-                      `http://localhost:8080/api/lists/${editingList._id}`,
-                      {
-                        method: "PUT",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization: token,
-                        },
-                        body: JSON.stringify({
-                          name: editingList.name,
-                          shows: editingList.shows,
-                        }),
-                      }
-                    );
+
+                    // Check if this is a default list
+                    const isDefaultList = editingList.isDefault;
+
+                    const endpoint = isDefaultList
+                      ? `http://localhost:8080/api/default-lists/${editingList.listType}/update`
+                      : `http://localhost:8080/api/lists/${editingList._id}`;
+
+                    const body = isDefaultList
+                      ? { shows: editingList.shows }
+                      : { name: editingList.name, shows: editingList.shows };
+
+                    const res = await fetch(endpoint, {
+                      method: "PUT",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: token,
+                      },
+                      body: JSON.stringify(body),
+                    });
+
                     if (!res.ok) throw new Error("save failed");
-                    // refresh my lists
-                    const refreshed = await fetch(
+
+                    // Refresh lists
+                    const userListsRes = await fetch(
                       `http://localhost:8080/api/lists?userID=${userId}`
                     );
-                    const d = await refreshed.json();
-                    setMyLists(Array.isArray(d.lists) ? d.lists : []);
+                    const userListsData = await userListsRes.json();
+                    setMyLists(
+                      Array.isArray(userListsData.lists)
+                        ? userListsData.lists
+                        : []
+                    );
+
+                    const defaultListsRes = await fetch(
+                      `http://localhost:8080/api/default-lists/${userId}`
+                    );
+                    const defaultListsData = await defaultListsRes.json();
+                    const defaultLists = Array.isArray(defaultListsData)
+                      ? defaultListsData
+                      : [];
+                    const order = [
+                      "Watching",
+                      "Finished",
+                      "Dropped",
+                      "Favorites",
+                    ];
+                    const sortedDefaultLists = defaultLists.sort((a, b) => {
+                      return (
+                        order.indexOf(a.listType) - order.indexOf(b.listType)
+                      );
+                    });
+                    setDefaultLists(sortedDefaultLists);
+
                     setEditingList(null);
                   } catch (e) {
                     console.error("save list edits", e);
@@ -456,6 +585,325 @@ export default function Lists() {
               </button>
               <button
                 onClick={() => setEditingList(null)}
+                style={{
+                  ...interactiveButton,
+                  background: "#fff",
+                  color: "#000",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit status lists modal */}
+      {editingStatusLists && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+          }}
+          onClick={() => setEditingStatusLists(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 1200,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              background: "#fff",
+              padding: 18,
+              borderRadius: 8,
+            }}
+          >
+            <h3>Edit Status Lists</h3>
+            <DragDropContext
+              onDragEnd={(result) => {
+                if (!result.destination) return;
+                const { source, destination } = result;
+
+                // If dropping in the same list
+                if (source.droppableId === destination.droppableId) {
+                  const list = editingStatusLists[source.droppableId];
+                  if (!list) return;
+
+                  const newShows = Array.from(list.shows);
+                  const [moved] = newShows.splice(source.index, 1);
+                  newShows.splice(destination.index, 0, moved);
+
+                  setEditingStatusLists({
+                    ...editingStatusLists,
+                    [source.droppableId]: {
+                      ...list,
+                      shows: newShows,
+                    },
+                  });
+                } else {
+                  // Moving between lists
+                  const sourceList = editingStatusLists[source.droppableId];
+                  const destList = editingStatusLists[destination.droppableId];
+
+                  if (!sourceList || !destList) return;
+
+                  const sourceShows = Array.from(sourceList.shows);
+                  const destShows = Array.from(destList.shows);
+                  const [moved] = sourceShows.splice(source.index, 1);
+                  destShows.splice(destination.index, 0, moved);
+
+                  setEditingStatusLists({
+                    ...editingStatusLists,
+                    [source.droppableId]: {
+                      ...sourceList,
+                      shows: sourceShows,
+                    },
+                    [destination.droppableId]: {
+                      ...destList,
+                      shows: destShows,
+                    },
+                  });
+                }
+              }}
+            >
+              <div style={{ display: "flex", gap: 16 }}>
+                {["watching", "finished", "dropped"].map((status) => (
+                  <div key={status} style={{ flex: 1 }}>
+                    <h4>{status.charAt(0).toUpperCase() + status.slice(1)}</h4>
+                    <div
+                      style={{
+                        minHeight: 400,
+                        border: "1px solid #ddd",
+                        borderRadius: 6,
+                        padding: 8,
+                      }}
+                    >
+                      <Droppable droppableId={status}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 8,
+                              minHeight: 350,
+                              background: snapshot.isDraggingOver
+                                ? "#f0f0f0"
+                                : "transparent",
+                              borderRadius: 4,
+                              padding: 4,
+                            }}
+                          >
+                            {editingStatusLists[status]?.shows?.map(
+                              (sid, idx) => {
+                                const meta = showsMeta[sid];
+                                const title = meta
+                                  ? meta.name || meta.title || sid
+                                  : sid;
+                                const poster =
+                                  meta && meta.poster_path
+                                    ? `https://image.tmdb.org/t/p/w200${meta.poster_path}`
+                                    : null;
+                                return (
+                                  <Draggable
+                                    key={sid}
+                                    draggableId={String(sid)}
+                                    index={idx}
+                                  >
+                                    {(draggableProvided, snapshot) => (
+                                      <div
+                                        ref={draggableProvided.innerRef}
+                                        {...draggableProvided.draggableProps}
+                                        {...draggableProvided.dragHandleProps}
+                                        style={{
+                                          display: "flex",
+                                          gap: 8,
+                                          alignItems: "center",
+                                          padding: 8,
+                                          border: "1px solid #eee",
+                                          borderRadius: 6,
+                                          background: snapshot.isDragging
+                                            ? "#fafafa"
+                                            : "#fff",
+                                          ...draggableProvided.draggableProps
+                                            .style,
+                                        }}
+                                      >
+                                        <img
+                                          src={
+                                            poster ||
+                                            `data:image/svg+xml;utf8,${encodeURIComponent(
+                                              `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='68'><rect width='100%' height='100%' fill='%23ddd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='8' fill='%23666'>No Image</text></svg>`
+                                            )}`
+                                          }
+                                          alt={title}
+                                          style={{
+                                            width: 48,
+                                            height: 68,
+                                            objectFit: "cover",
+                                            borderRadius: 6,
+                                            cursor: "grab",
+                                          }}
+                                        />
+                                        <div style={{ flex: 1 }}>{title}</div>
+                                        <div
+                                          style={{ display: "flex", gap: 8 }}
+                                        >
+                                          <button
+                                            onClick={() => {
+                                              const newLists = {
+                                                ...editingStatusLists,
+                                              };
+                                              newLists[status].shows = newLists[
+                                                status
+                                              ].shows.filter(
+                                                (s) => String(s) !== String(sid)
+                                              );
+                                              setEditingStatusLists(newLists);
+                                            }}
+                                            style={{
+                                              ...interactiveButton,
+                                              padding: "6px 8px",
+                                              background: "#c00",
+                                              color: "#fff",
+                                            }}
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                );
+                              }
+                            )}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </DragDropContext>
+
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={async () => {
+                  try {
+                    // Save all three default lists
+                    const promises = [];
+                    const token = localStorage.getItem("token");
+                    if (editingStatusLists.watching) {
+                      promises.push(
+                        fetch(
+                          `http://localhost:8080/api/default-lists/Watching/update`,
+                          {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: token,
+                            },
+                            body: JSON.stringify({
+                              shows: editingStatusLists.watching.shows,
+                            }),
+                          }
+                        )
+                      );
+                    }
+                    if (editingStatusLists.finished) {
+                      promises.push(
+                        fetch(
+                          `http://localhost:8080/api/default-lists/Finished/update`,
+                          {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: token,
+                            },
+                            body: JSON.stringify({
+                              shows: editingStatusLists.finished.shows,
+                            }),
+                          }
+                        )
+                      );
+                    }
+                    if (editingStatusLists.dropped) {
+                      promises.push(
+                        fetch(
+                          `http://localhost:8080/api/default-lists/Dropped/update`,
+                          {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: token,
+                            },
+                            body: JSON.stringify({
+                              shows: editingStatusLists.dropped.shows,
+                            }),
+                          }
+                        )
+                      );
+                    }
+
+                    await Promise.all(promises);
+
+                    // Refresh lists
+                    const userListsRes = await fetch(
+                      `http://localhost:8080/api/lists?userID=${userId}`
+                    );
+                    const userListsData = await userListsRes.json();
+                    setMyLists(
+                      Array.isArray(userListsData.lists)
+                        ? userListsData.lists
+                        : []
+                    );
+
+                    const defaultListsRes = await fetch(
+                      `http://localhost:8080/api/default-lists/${userId}`
+                    );
+                    const defaultListsData = await defaultListsRes.json();
+                    const defaultLists = Array.isArray(defaultListsData)
+                      ? defaultListsData
+                      : [];
+                    const order = [
+                      "Watching",
+                      "Finished",
+                      "Dropped",
+                      "Favorites",
+                    ];
+                    const sortedDefaultLists = defaultLists.sort((a, b) => {
+                      return (
+                        order.indexOf(a.listType) - order.indexOf(b.listType)
+                      );
+                    });
+                    setDefaultLists(sortedDefaultLists);
+
+                    setEditingStatusLists(null);
+                  } catch (e) {
+                    console.error("save status lists", e);
+                    alert("Failed to save status lists");
+                  }
+                }}
+                style={{ ...interactiveButton }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditingStatusLists(null)}
                 style={{
                   ...interactiveButton,
                   background: "#fff",
@@ -484,8 +932,11 @@ export default function Lists() {
         ) : (
           <>
             <div style={gridWrap}>
+              {/* Default Lists */}
+              {defaultLists.map((list) => renderListCard(list, true))}
+              {/* User Lists */}
               {(showAllMy ? myLists : myLists.slice(0, 9)).map((l) =>
-                renderListCard(l)
+                renderListCard(l, false)
               )}
             </div>
             {myLists.length > 9 && (
