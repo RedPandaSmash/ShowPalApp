@@ -20,10 +20,13 @@ export default function Lists() {
   const [myLists, setMyLists] = useState([]);
   const [defaultLists, setDefaultLists] = useState([]);
   const [recentLists, setRecentLists] = useState([]);
+  const [followedLists, setFollowedLists] = useState([]);
   const [showsMeta, setShowsMeta] = useState({});
   const [loadingMy, setLoadingMy] = useState(false);
   const [loadingRecent, setLoadingRecent] = useState(false);
+  const [loadingFollowed, setLoadingFollowed] = useState(false);
   const [showAllMy, setShowAllMy] = useState(false);
+  const [showAllFollowed, setShowAllFollowed] = useState(false);
   const [editingList, setEditingList] = useState(null); // { _id, name, shows: [] }
   const [editingStatusLists, setEditingStatusLists] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
@@ -102,6 +105,33 @@ export default function Lists() {
     fetchRecent();
   }, []);
 
+  useEffect(() => {
+    const fetchFollowed = async () => {
+      if (!isSignedIn || !userId) return;
+      setLoadingFollowed(true);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`http://localhost:8080/api/lists/followed`, {
+          headers: { Authorization: token },
+        });
+        if (!res.ok) throw new Error("failed");
+        const data = await res.json();
+        const lists = Array.isArray(data.lists) ? data.lists : [];
+        setFollowedLists(lists);
+        const ids = Array.from(
+          new Set(lists.flatMap((l) => (Array.isArray(l.shows) ? l.shows : [])))
+        );
+        fetchShowsMeta(ids);
+      } catch (e) {
+        console.error("fetch followed lists", e);
+        setFollowedLists([]);
+      } finally {
+        setLoadingFollowed(false);
+      }
+    };
+    fetchFollowed();
+  }, [isSignedIn, userId]);
+
   // fetch metadata for show ids (batch) and cache in showsMeta
   const fetchShowsMeta = async (ids = []) => {
     if (!ids || ids.length === 0) return;
@@ -162,9 +192,10 @@ export default function Lists() {
     `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='90'><rect width='100%' height='100%' fill='%23ddd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%23666'>No Image</text></svg>`
   )}`;
 
-  const renderListCard = (list, isDefault = false) => {
+  const renderListCard = (list, isDefault = false, showEditButtons = true) => {
     const n = list.shows ? list.shows.length : 0;
     const listName = list.listType || list.name;
+    const isOwnList = list.userID && list.userID._id === userId;
 
     return (
       <div key={list._id} style={listCard}>
@@ -175,11 +206,31 @@ export default function Lists() {
             alignItems: "center",
           }}
         >
-          <strong>{listName}</strong>
+          <div>
+            <strong>{listName}</strong>
+            {list.userID && !isOwnList && (
+              <div style={{ fontSize: "0.8em", color: "#666", marginTop: 2 }}>
+                by{" "}
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/profile/${list.userID.username}`);
+                  }}
+                  style={{
+                    color: "#6c2eb6",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  {list.userID.username}
+                </span>
+              </div>
+            )}
+          </div>
           <small style={{ color: "#666" }}>
             {n === 1 ? "1 show" : `${n} shows`}
           </small>
-          {isSignedIn && (
+          {isSignedIn && showEditButtons && (
             <div style={{ display: "flex", gap: 8 }}>
               {list.listType === "Favorites" && (
                 <button
@@ -966,14 +1017,39 @@ export default function Lists() {
         }}
       >
         <h2 style={{ marginTop: 0 }}>Lists by People I Follow</h2>
-        {isSignedIn ? (
-          <div style={{ color: "#666" }}>
-            Placeholder — follow users to see their lists here.
-          </div>
-        ) : (
+        {!isSignedIn ? (
           <div style={{ color: "#666" }}>
             Sign in to see lists from people you follow.
           </div>
+        ) : loadingFollowed ? (
+          <div>Loading followed lists...</div>
+        ) : followedLists.length === 0 ? (
+          <div style={{ color: "#666" }}>
+            Follow users to see their lists here.
+          </div>
+        ) : (
+          <>
+            <div style={gridWrap}>
+              {(showAllFollowed
+                ? followedLists
+                : followedLists.slice(0, 9)
+              ).map((l) => renderListCard(l, false, false))}
+            </div>
+            {followedLists.length > 9 && (
+              <div style={{ marginTop: 12, textAlign: "center" }}>
+                <button
+                  onClick={() => setShowAllFollowed((v) => !v)}
+                  style={{
+                    ...interactiveButton,
+                    background: "#6c2eb6",
+                    color: "#ffd700",
+                  }}
+                >
+                  {showAllFollowed ? "Show Less" : "See All"}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
 
@@ -990,7 +1066,9 @@ export default function Lists() {
           <div>Loading recent lists...</div>
         ) : (
           <div style={gridWrap}>
-            {recentLists.slice(0, 12).map((l) => renderListCard(l))}
+            {recentLists
+              .slice(0, 12)
+              .map((l) => renderListCard(l, false, false))}
           </div>
         )}
       </section>

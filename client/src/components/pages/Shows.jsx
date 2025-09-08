@@ -10,10 +10,70 @@ export default function Shows() {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Search function
+  const performSearch = async (query, searchPage = 1) => {
+    if (!query.trim()) {
+      setIsSearching(false);
+      setPage(1);
+      return;
+    }
+
+    setLoading(true);
+    setIsSearching(true);
+    try {
+      const res = await fetch(
+        `http://localhost:8080/api/shows/search?query=${encodeURIComponent(
+          query
+        )}&page=${searchPage}`
+      );
+      if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+      const data = await res.json();
+
+      if (typeof data.total_pages === "number") setTotalPages(data.total_pages);
+
+      const items = Array.isArray(data.results) ? data.results : [];
+      setShows(items);
+      setError(null);
+    } catch (err) {
+      console.error("Search error:", err);
+      setError(`Search failed: ${err.message}`);
+      setIsSearching(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle search submission
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim().length >= 2) {
+      setPage(1);
+      performSearch(searchQuery, 1);
+    } else if (searchQuery.trim().length === 0) {
+      setIsSearching(false);
+      setPage(1);
+    }
+  };
+
+  // Clear search and return to popular shows
+  const clearSearch = () => {
+    setSearchQuery("");
+    setIsSearching(false);
+    setPage(1);
+  };
 
   useEffect(() => {
     let mounted = true;
-    const fetchPopular = async () => {
+
+    const fetchData = async () => {
+      if (isSearching && searchQuery.trim()) {
+        // Already handled by performSearch
+        return;
+      }
+
       setLoading(true);
       try {
         const res = await fetch(
@@ -22,22 +82,19 @@ export default function Shows() {
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (!mounted) return;
-        // TMDB returns results array and total_pages
-        const total =
-          typeof data.total_pages === "number" ? data.total_pages : totalPages;
+
         if (typeof data.total_pages === "number")
           setTotalPages(data.total_pages);
 
         // If requested page exceeds TMDB's total, clamp and re-request by updating page state.
         if (typeof data.total_pages === "number" && page > data.total_pages) {
-          // setPage will trigger a re-fetch with a valid page value
           setPage(data.total_pages);
           return;
         }
 
-        // Use whatever results the API returned for this page so front-end pages map 1:1 with API pages
         const items = Array.isArray(data.results) ? data.results : [];
         setShows(items);
+        setError(null);
       } catch (err) {
         console.error(err);
         setError(err.message || "Failed to load shows");
@@ -45,11 +102,12 @@ export default function Shows() {
         if (mounted) setLoading(false);
       }
     };
-    fetchPopular();
+
+    fetchData();
     return () => {
       mounted = false;
     };
-  }, [page]);
+  }, [page, isSearching, searchQuery]);
 
   const gridStyle = {
     display: "grid",
@@ -99,8 +157,19 @@ export default function Shows() {
   if (error)
     return <div style={{ padding: 24, color: "#000" }}>Error: {error}</div>;
 
-  const onFirst = () => setPage(1);
-  const onLast = () => setPage(totalPages);
+  const onFirst = () => {
+    setPage(1);
+    if (isSearching && searchQuery.trim()) {
+      performSearch(searchQuery, 1);
+    }
+  };
+
+  const onLast = () => {
+    setPage(totalPages);
+    if (isSearching && searchQuery.trim()) {
+      performSearch(searchQuery, totalPages);
+    }
+  };
 
   const renderPageButtons = () => {
     const buttons = [];
@@ -133,7 +202,12 @@ export default function Shows() {
       buttons.push(
         <button
           key={p}
-          onClick={() => setPage(p)}
+          onClick={() => {
+            setPage(p);
+            if (isSearching && searchQuery.trim()) {
+              performSearch(searchQuery, p);
+            }
+          }}
           style={{
             padding: "6px 10px",
             fontWeight: p === page ? "bold" : "normal",
@@ -176,7 +250,133 @@ export default function Shows() {
 
   return (
     <section style={sectionStyle}>
-      <h2 style={{ marginTop: 0 }}>Most Popular Shows</h2>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ marginTop: 0, marginBottom: 16 }}>
+          {isSearching
+            ? `Search Results for "${searchQuery}"`
+            : "Most Popular Shows"}
+        </h2>
+
+        {/* Search Bar */}
+        <form
+          onSubmit={handleSearchSubmit}
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
+            <input
+              type="text"
+              placeholder="Search for TV shows..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px 50px 12px 16px", // Extra padding on right for buttons
+                borderRadius: 8,
+                border: "2px solid #ddd",
+                fontSize: 16,
+                outline: "none",
+                transition: "border-color 0.2s",
+              }}
+              onFocus={(e) => (e.target.style.borderColor = "#6c2eb6")}
+              onBlur={(e) => (e.target.style.borderColor = "#ddd")}
+            />
+
+            {/* Clear button */}
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                style={{
+                  position: "absolute",
+                  right: 45,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#666",
+                  fontSize: 18,
+                  padding: 4,
+                }}
+                title="Clear search"
+              >
+                ×
+              </button>
+            )}
+
+            {/* Search submit button with magnifying glass */}
+            <button
+              type="submit"
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "#6c2eb6",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                padding: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "background-color 0.2s",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#4a1d7a")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#6c2eb6")}
+              title="Search"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="8"
+                  stroke="#ffd700"
+                  strokeWidth="2"
+                  fill="none"
+                />
+                <path
+                  d="M21 21L16.5 16.5"
+                  stroke="#ffd700"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {isSearching && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              style={{
+                padding: "12px 16px",
+                background: "#6c2eb6",
+                color: "#ffd700",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: "bold",
+              }}
+            >
+              Clear Search
+            </button>
+          )}
+        </form>
+      </div>
       <div style={gridStyle}>
         {shows.map((s) => (
           <div key={s.id} style={cardStyle}>
@@ -238,7 +438,13 @@ export default function Shows() {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const v = Number(e.currentTarget.value);
-                if (!isNaN(v)) setPage(Math.min(Math.max(1, v), totalPages));
+                if (!isNaN(v)) {
+                  const clampedPage = Math.min(Math.max(1, v), totalPages);
+                  setPage(clampedPage);
+                  if (isSearching && searchQuery.trim()) {
+                    performSearch(searchQuery, clampedPage);
+                  }
+                }
               }
             }}
             style={{ width: 80, padding: "6px 8px" }}
