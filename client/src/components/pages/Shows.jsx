@@ -13,14 +13,13 @@ export default function Shows() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
-  // Search function
+  // Search function (only triggers on submit)
   const performSearch = async (query, searchPage = 1) => {
     if (!query.trim()) {
       setIsSearching(false);
       setPage(1);
       return;
     }
-
     setLoading(true);
     setIsSearching(true);
     try {
@@ -31,9 +30,7 @@ export default function Shows() {
       );
       if (!res.ok) throw new Error(`Search failed: ${res.status}`);
       const data = await res.json();
-
       if (typeof data.total_pages === "number") setTotalPages(data.total_pages);
-
       const items = Array.isArray(data.results) ? data.results : [];
       setShows(items);
       setError(null);
@@ -46,7 +43,7 @@ export default function Shows() {
     }
   };
 
-  // Handle search submission
+  // Only search on submit (Enter or Search button)
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim().length >= 2) {
@@ -67,13 +64,9 @@ export default function Shows() {
 
   useEffect(() => {
     let mounted = true;
-
     const fetchData = async () => {
-      if (isSearching && searchQuery.trim()) {
-        // Already handled by performSearch
-        return;
-      }
-
+      // Only fetch popular shows if not searching
+      if (isSearching && searchQuery.trim()) return;
       setLoading(true);
       try {
         const res = await fetch(
@@ -82,16 +75,12 @@ export default function Shows() {
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (!mounted) return;
-
         if (typeof data.total_pages === "number")
           setTotalPages(data.total_pages);
-
-        // If requested page exceeds TMDB's total, clamp and re-request by updating page state.
         if (typeof data.total_pages === "number" && page > data.total_pages) {
           setPage(data.total_pages);
           return;
         }
-
         const items = Array.isArray(data.results) ? data.results : [];
         setShows(items);
         setError(null);
@@ -102,12 +91,11 @@ export default function Shows() {
         if (mounted) setLoading(false);
       }
     };
-
     fetchData();
     return () => {
       mounted = false;
     };
-  }, [page, isSearching, searchQuery]);
+  }, [page, isSearching]);
 
   const gridStyle = {
     display: "grid",
@@ -357,24 +345,7 @@ export default function Shows() {
             </button>
           </div>
 
-          {isSearching && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              style={{
-                padding: "12px 16px",
-                background: "#6c2eb6",
-                color: "#ffd700",
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer",
-                fontSize: 14,
-                fontWeight: "bold",
-              }}
-            >
-              Clear Search
-            </button>
-          )}
+          {/* Only show the clear button inside the input, not a second button below */}
         </form>
       </div>
       <div style={gridStyle}>
