@@ -59,6 +59,11 @@ export default function UserProfile() {
   }, [userId]);
 
   useEffect(() => {
+    // Reset activity tab to "recent" when navigating to a new profile
+    setActivityTab("recent");
+  }, [userId]);
+
+  useEffect(() => {
     if (activityTab === "following" && isSignedIn && isOwnProfile) {
       fetchFollowingActivity();
     }

@@ -71,10 +71,39 @@ router.get("/", async (req, res) => {
     const filter = {};
     if (mine === "true" && req.user) filter.userID = req.user._id;
     else if (userID) filter.userID = userID;
-    const lists = await List.find(filter).sort({ created_at: -1 });
+    const lists = await List.find(filter)
+      .populate("userID", "username")
+      .sort({ created_at: -1 });
     return res.status(200).json({ lists });
   } catch (err) {
     console.error("get lists error", err);
+    return res.status(500).json({ error: "internal server error" });
+  }
+});
+
+// Get lists from users that the current user is following (authenticated)
+router.get("/followed", validateSession, async (req, res) => {
+  try {
+    // Get the current user's profile to find who they follow
+    const userProfile = await Profile.findOne({ userID: req.user._id });
+    if (
+      !userProfile ||
+      !userProfile.following ||
+      userProfile.following.length === 0
+    ) {
+      return res.status(200).json({ lists: [] });
+    }
+
+    // Get lists from followed users, sorted by creation date
+    const lists = await List.find({
+      userID: { $in: userProfile.following },
+    })
+      .populate("userID", "username")
+      .sort({ created_at: -1 });
+
+    return res.status(200).json({ lists });
+  } catch (err) {
+    console.error("get followed lists error", err);
     return res.status(500).json({ error: "internal server error" });
   }
 });
