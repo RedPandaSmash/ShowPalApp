@@ -192,7 +192,12 @@ export default function Lists() {
     `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='90'><rect width='100%' height='100%' fill='%23ddd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%23666'>No Image</text></svg>`
   )}`;
 
-  const renderListCard = (list, isDefault = false, showEditButtons = true) => {
+  const renderListCard = (
+    list,
+    isDefault = false,
+    showEditButtons = true,
+    showCreator = true
+  ) => {
     const n = list.shows ? list.shows.length : 0;
     const listName = list.listType || list.name;
     const isOwnList = list.userID && list.userID._id === userId;
@@ -208,13 +213,13 @@ export default function Lists() {
         >
           <div>
             <strong>{listName}</strong>
-            {list.userID && !isOwnList && (
+            {list.userID && showCreator && (
               <div style={{ fontSize: "0.8em", color: "#666", marginTop: 2 }}>
                 by{" "}
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/profile/${list.userID.username}`);
+                    navigate(`/user/${list.userID._id}`);
                   }}
                   style={{
                     color: "#6c2eb6",
@@ -984,10 +989,12 @@ export default function Lists() {
           <>
             <div style={gridWrap}>
               {/* Default Lists */}
-              {defaultLists.map((list) => renderListCard(list, true))}
+              {defaultLists.map((list) =>
+                renderListCard(list, true, true, false)
+              )}
               {/* User Lists */}
               {(showAllMy ? myLists : myLists.slice(0, 9)).map((l) =>
-                renderListCard(l, false)
+                renderListCard(l, false, true, false)
               )}
             </div>
             {myLists.length > 9 && (
