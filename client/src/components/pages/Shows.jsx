@@ -96,11 +96,14 @@ export default function Shows() {
     }
   }, [page, searchQuery, isSearching, searchParams, setSearchParams]);
 
+  // Fetch popular shows or search results depending on state
   useEffect(() => {
     let mounted = true;
+    if (isSearching && searchQuery.trim()) {
+      performSearch(searchQuery, page);
+      return;
+    }
     const fetchData = async () => {
-      // Only fetch popular shows if not searching
-      if (isSearching && searchQuery.trim()) return;
       setLoading(true);
       try {
         const res = await fetch(
@@ -129,7 +132,15 @@ export default function Shows() {
     return () => {
       mounted = false;
     };
-  }, [page, isSearching]);
+  }, [page, isSearching, searchQuery]);
+
+  // Reset loading and search state when returning to Shows page (e.g., after navigating back)
+  useEffect(() => {
+    setLoading(false);
+    if (!searchQuery) {
+      setIsSearching(false);
+    }
+  }, [searchQuery]);
 
   const gridStyle = {
     display: "grid",
