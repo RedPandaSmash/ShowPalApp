@@ -26,6 +26,8 @@ export default function Shows() {
     return !!searchParams.get("q");
   });
 
+  const [inputValue, setInputValue] = useState(() => page.toString());
+
   // Search function (only triggers on submit)
   const performSearch = async (query, searchPage = 1) => {
     if (!query.trim()) {
@@ -130,6 +132,11 @@ export default function Shows() {
       mounted = false;
     };
   }, [page, isSearching]);
+
+  // Sync inputValue with page changes
+  useEffect(() => {
+    setInputValue(page.toString());
+  }, [page]);
 
   const gridStyle = {
     display: "grid",
@@ -287,9 +294,19 @@ export default function Shows() {
             gap: 12,
             alignItems: "center",
             marginBottom: 16,
+            margin: 0,
+            padding: 0,
           }}
         >
-          <div style={{ position: "relative", flex: 1, maxWidth: 400 }}>
+          <div
+            style={{
+              position: "relative",
+              flex: 1,
+              maxWidth: 400,
+              margin: 0,
+              padding: 0,
+            }}
+          >
             <input
               type="text"
               placeholder="Search for TV shows..."
@@ -297,25 +314,27 @@ export default function Shows() {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: "100%",
-                padding: "12px 50px 12px 16px", // Extra padding on right for buttons
-                borderRadius: 8,
+                padding: "12px 44px 12px 16px", // Increased padding to accommodate both buttons
+                borderRadius: "8px 0 0 8px", // Rounded left corners only
                 border: "2px solid #ddd",
+                borderRight: "none", // Remove right border
                 fontSize: 16,
                 outline: "none",
                 transition: "border-color 0.2s",
+                boxSizing: "border-box",
               }}
               onFocus={(e) => (e.target.style.borderColor = "#6c2eb6")}
               onBlur={(e) => (e.target.style.borderColor = "#ddd")}
             />
 
-            {/* Clear button */}
+            {/* Clear button - positioned inside the input area */}
             {searchQuery && (
               <button
                 type="button"
                 onClick={clearSearch}
                 style={{
                   position: "absolute",
-                  right: 45,
+                  right: 44,
                   top: "50%",
                   transform: "translateY(-50%)",
                   background: "none",
@@ -323,7 +342,14 @@ export default function Shows() {
                   cursor: "pointer",
                   color: "#666",
                   fontSize: 18,
-                  padding: 4,
+                  padding: 0,
+                  width: 24,
+                  height: 24,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 3,
+                  zIndex: 2,
                 }}
                 title="Clear search"
               >
@@ -331,26 +357,36 @@ export default function Shows() {
               </button>
             )}
 
-            {/* Search submit button with magnifying glass */}
+            {/* Search submit button with magnifying glass - seamless with input */}
             <button
               type="submit"
               style={{
                 position: "absolute",
-                right: 8,
-                top: "50%",
-                transform: "translateY(-50%)",
+                right: 0,
+                top: 0,
+                bottom: 0,
                 background: "#6c2eb6",
-                border: "none",
-                borderRadius: 6,
+                border: "2px solid #ddd",
+                borderLeft: "none",
+                borderRadius: "0 8px 8px 0", // Rounded right corners only
                 cursor: "pointer",
-                padding: "8px",
+                padding: "0 12px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                transition: "background-color 0.2s",
+                transition: "background-color 0.2s, border-color 0.2s",
+                width: 44,
+                margin: 0,
+                zIndex: 1,
               }}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = "#4a1d7a")}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = "#6c2eb6")}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = "#4a1d7a";
+                e.target.style.borderColor = "#6c2eb6";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "#6c2eb6";
+                e.target.style.borderColor = "#ddd";
+              }}
               title="Search"
             >
               <svg
@@ -439,20 +475,12 @@ export default function Shows() {
             type="number"
             min={1}
             max={totalPages}
-            value={page}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              if (!isNaN(v) && v >= 1 && v <= totalPages) {
-                setPage(v);
-                if (isSearching && searchQuery.trim()) {
-                  performSearch(searchQuery, v);
-                }
-              }
-            }}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                const v = Number(e.target.value);
-                if (!isNaN(v)) {
+                const v = Number(inputValue);
+                if (!isNaN(v) && v >= 1 && v <= totalPages) {
                   const clampedPage = Math.min(Math.max(1, v), totalPages);
                   if (clampedPage !== page) {
                     setPage(clampedPage);
@@ -463,8 +491,21 @@ export default function Shows() {
                 }
               }
             }}
-            style={{ width: 80, padding: "6px 8px" }}
+            style={{
+              width: 80,
+              padding: "6px 8px",
+              MozAppearance: "textfield",
+            }}
           />
+          <style>
+            {`
+              input[type="number"]::-webkit-outer-spin-button,
+              input[type="number"]::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+              }
+            `}
+          </style>
         </div>
       </div>
     </section>
