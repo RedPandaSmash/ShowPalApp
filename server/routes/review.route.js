@@ -51,7 +51,9 @@ router.get("/", async (req, res) => {
     const { showID } = req.query;
     const filter = {};
     if (showID) filter.showID = String(showID);
-    const reviews = await Review.find(filter).sort({ createdAt: -1 });
+    const reviews = await Review.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("userID", "username");
     res.status(200).json({ reviews, message: "review found" });
   } catch (error) {
     console.error(error);

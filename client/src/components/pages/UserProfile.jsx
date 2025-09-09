@@ -5,6 +5,43 @@ import AuthContext from "../../context/AuthContext";
 import { popularShowsSection } from "./homeStyles";
 import { interactiveButton } from "../multiuse/interactiveStyles";
 
+// SVG Star component with clipPath for partial fills
+function SVGStar({ fill = 1, size = 18, color = "#e5b800", id }) {
+  const pct = Math.max(0, Math.min(1, fill)) * 100;
+  const clipId = `clip-${id}`;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      style={{
+        display: "inline-block",
+        verticalAlign: "middle",
+        margin: "0 1px",
+      }}
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <rect x="0" y="0" width={`${pct}%`} height="100%" />
+        </clipPath>
+      </defs>
+      {/* empty star */}
+      <path
+        d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"
+        fill="#ccc"
+      />
+      {/* filled part clipped to pct */}
+      <g clipPath={`url(#${clipId})`}>
+        <path
+          d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"
+          fill={color}
+        />
+      </g>
+    </svg>
+  );
+}
+
 const cardStyle = {
   background: "#fff",
   color: "#000",
@@ -39,6 +76,13 @@ export default function UserProfile() {
   const [activityLoading, setActivityLoading] = useState(false);
   const [followingActivityLoading, setFollowingActivityLoading] =
     useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [followersData, setFollowersData] = useState([]);
+  const [followingData, setFollowingData] = useState([]);
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   useEffect(() => {
     fetchProfile();
@@ -79,6 +123,9 @@ export default function UserProfile() {
       }
       const profileData = await response.json();
       setProfile(profileData);
+      // Initialize optimistic counts from profile data
+      setFollowersCount(profileData.followers?.length || 0);
+      setFollowingCount(profileData.following?.length || 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -256,6 +303,142 @@ export default function UserProfile() {
             (follower) => follower !== currentUserId
           ),
         }));
+      }
+    } catch (err) {
+      console.error("Error unfollowing user:", err);
+    }
+  };
+
+  const fetchFollowers = async () => {
+    setSocialLoading(true);
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/profile/${userId}/followers`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch followers");
+      }
+      const data = await response.json();
+      // Set isFollowing based on whether current user follows each follower
+      const followersWithFollowStatus = (data.followers || []).map((user) => ({
+        ...user,
+        isFollowing:
+          profile.following?.some((followingId) => followingId === user._id) ||
+          false,
+      }));
+      setFollowersData(followersWithFollowStatus);
+      setFollowersCount(followersWithFollowStatus.length);
+      setShowFollowersModal(true);
+    } catch (err) {
+      console.error("Error fetching followers:", err);
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const fetchFollowing = async () => {
+    setSocialLoading(true);
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/profile/${userId}/following`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch following");
+      }
+      const data = await response.json();
+      // Set isFollowing to true for all users since these are users the profile owner follows
+      const followingWithFollowStatus = (data.following || []).map((user) => ({
+        ...user,
+        isFollowing: true,
+      }));
+      setFollowingData(followingWithFollowStatus);
+      setFollowingCount(followingWithFollowStatus.length);
+      setShowFollowingModal(true);
+    } catch (err) {
+      console.error("Error fetching following:", err);
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleFollowUser = async (targetUserId) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/profile/${targetUserId}/follow`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        // Update profile.following array
+        setProfile((prev) => ({
+          ...prev,
+          following: [...(prev.following || []), targetUserId],
+        }));
+
+        // Update local state for followers/following lists
+        setFollowersData((prev) =>
+          prev.map((user) =>
+            user._id === targetUserId ? { ...user, isFollowing: true } : user
+          )
+        );
+        setFollowingData((prev) =>
+          prev.map((user) =>
+            user._id === targetUserId ? { ...user, isFollowing: true } : user
+          )
+        );
+        // Optimistically update counts
+        setFollowingCount((prev) => prev + 1);
+      }
+    } catch (err) {
+      console.error("Error following user:", err);
+    }
+  };
+
+  const handleUnfollowUser = async (targetUserId) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/profile/${targetUserId}/follow`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        // Update profile.following array
+        setProfile((prev) => ({
+          ...prev,
+          following: prev.following?.filter((id) => id !== targetUserId) || [],
+        }));
+
+        // Update local state for followers/following lists
+        setFollowersData((prev) =>
+          prev.map((user) =>
+            user._id === targetUserId ? { ...user, isFollowing: false } : user
+          )
+        );
+        setFollowingData((prev) =>
+          prev.map((user) =>
+            user._id === targetUserId ? { ...user, isFollowing: false } : user
+          )
+        );
+        // Optimistically update counts
+        setFollowingCount((prev) => prev - 1);
       }
     } catch (err) {
       console.error("Error unfollowing user:", err);
@@ -1258,10 +1441,30 @@ export default function UserProfile() {
             }}
           >
             <div style={{ textAlign: "center" }}>
-              <strong>Followers:</strong> {profile.followers?.length || 0}
+              <strong>Followers:</strong>{" "}
+              <span
+                onClick={fetchFollowers}
+                style={{
+                  cursor: "pointer",
+                  color: "#6c2eb6",
+                  textDecoration: "underline",
+                }}
+              >
+                {followersCount}
+              </span>
             </div>
             <div style={{ textAlign: "center" }}>
-              <strong>Following:</strong> {profile.following?.length || 0}
+              <strong>Following:</strong>{" "}
+              <span
+                onClick={fetchFollowing}
+                style={{
+                  cursor: "pointer",
+                  color: "#6c2eb6",
+                  textDecoration: "underline",
+                }}
+              >
+                {followingCount}
+              </span>
             </div>
           </div>
         </div>
@@ -1950,7 +2153,25 @@ export default function UserProfile() {
                           <div>
                             <div style={{ marginBottom: 8 }}>
                               <strong>Rating:</strong>{" "}
-                              {"⭐".repeat(activity.enrichedData.rating)}
+                              <div style={{ display: "inline-block" }}>
+                                {Array.from({ length: 5 }).map((_, i) => {
+                                  const raw = activity.enrichedData.rating - i;
+                                  const fill = Math.max(0, Math.min(1, raw));
+                                  return (
+                                    <span
+                                      key={i}
+                                      style={{ display: "inline-block" }}
+                                    >
+                                      <SVGStar
+                                        fill={fill}
+                                        size={16}
+                                        color={"#e5b800"}
+                                        id={`activity-${activity._id}-${i}`}
+                                      />
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             </div>
                             {activity.enrichedData.comment && (
                               <div>
@@ -2925,7 +3146,25 @@ export default function UserProfile() {
                           <div>
                             <div style={{ marginBottom: 8 }}>
                               <strong>Rating:</strong>{" "}
-                              {"⭐".repeat(activity.enrichedData.rating)}
+                              <div style={{ display: "inline-block" }}>
+                                {Array.from({ length: 5 }).map((_, i) => {
+                                  const raw = activity.enrichedData.rating - i;
+                                  const fill = Math.max(0, Math.min(1, raw));
+                                  return (
+                                    <span
+                                      key={i}
+                                      style={{ display: "inline-block" }}
+                                    >
+                                      <SVGStar
+                                        fill={fill}
+                                        size={16}
+                                        color={"#e5b800"}
+                                        id={`following-${activity._id}-${i}`}
+                                      />
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             </div>
                             {activity.enrichedData.comment && (
                               <div>
@@ -3052,6 +3291,234 @@ export default function UserProfile() {
           </div>
         )}
       </section>
+
+      {/* Followers Modal */}
+      {showFollowersModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 3000,
+          }}
+          onClick={() => setShowFollowersModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 500,
+              maxHeight: "80vh",
+              overflowY: "auto",
+              background: "#fff",
+              padding: 24,
+              borderRadius: 8,
+            }}
+          >
+            <h3 style={{ color: "#6c2eb6", marginTop: 0 }}>
+              Followers ({followersCount})
+            </h3>
+            {socialLoading ? (
+              <div style={{ textAlign: "center", padding: 40 }}>
+                <p>Loading followers...</p>
+              </div>
+            ) : followersData.length > 0 ? (
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 12 }}
+              >
+                {followersData.map((user) => (
+                  <div
+                    key={user._id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: 12,
+                      border: "1px solid #ddd",
+                      borderRadius: 6,
+                      background: "#f9f9f9",
+                    }}
+                  >
+                    <div
+                      style={{
+                        cursor: "pointer",
+                      }}
+                      onClick={() => {
+                        setShowFollowersModal(false);
+                        navigate(`/user/${user._id}`);
+                      }}
+                    >
+                      <div style={{ fontWeight: "bold", color: "#6c2eb6" }}>
+                        {user.username}
+                      </div>
+                      <div style={{ fontSize: "0.9em", color: "#666" }}>
+                        {user.bio || "No bio"}
+                      </div>
+                    </div>
+                    {isSignedIn && currentUserId !== user._id && (
+                      <button
+                        onClick={() =>
+                          user.isFollowing
+                            ? handleUnfollowUser(user._id)
+                            : handleFollowUser(user._id)
+                        }
+                        style={{
+                          ...interactiveButton,
+                          padding: "6px 12px",
+                          backgroundColor: user.isFollowing
+                            ? "#dc3545"
+                            : "#007bff",
+                          fontSize: "0.9em",
+                        }}
+                      >
+                        {user.isFollowing ? "Unfollow" : "Follow"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: 40, color: "#666" }}>
+                <p>No followers yet.</p>
+              </div>
+            )}
+            <div
+              style={{
+                marginTop: 20,
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={() => setShowFollowersModal(false)}
+                style={{
+                  ...interactiveButton,
+                  background: "#fff",
+                  color: "#000",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Following Modal */}
+      {showFollowingModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 3000,
+          }}
+          onClick={() => setShowFollowingModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 500,
+              maxHeight: "80vh",
+              overflowY: "auto",
+              background: "#fff",
+              padding: 24,
+              borderRadius: 8,
+            }}
+          >
+            <h3 style={{ color: "#6c2eb6", marginTop: 0 }}>
+              Following ({followingCount})
+            </h3>
+            {socialLoading ? (
+              <div style={{ textAlign: "center", padding: 40 }}>
+                <p>Loading following...</p>
+              </div>
+            ) : followingData.length > 0 ? (
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 12 }}
+              >
+                {followingData.map((user) => (
+                  <div
+                    key={user._id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: 12,
+                      border: "1px solid #ddd",
+                      borderRadius: 6,
+                      background: "#f9f9f9",
+                    }}
+                  >
+                    <div
+                      style={{
+                        cursor: "pointer",
+                      }}
+                      onClick={() => {
+                        setShowFollowingModal(false);
+                        navigate(`/user/${user._id}`);
+                      }}
+                    >
+                      <div style={{ fontWeight: "bold", color: "#6c2eb6" }}>
+                        {user.username}
+                      </div>
+                      <div style={{ fontSize: "0.9em", color: "#666" }}>
+                        {user.bio || "No bio"}
+                      </div>
+                    </div>
+                    {isSignedIn && currentUserId !== user._id && (
+                      <button
+                        onClick={() =>
+                          user.isFollowing
+                            ? handleUnfollowUser(user._id)
+                            : handleFollowUser(user._id)
+                        }
+                        style={{
+                          ...interactiveButton,
+                          padding: "6px 12px",
+                          backgroundColor: user.isFollowing
+                            ? "#dc3545"
+                            : "#007bff",
+                          fontSize: "0.9em",
+                        }}
+                      >
+                        {user.isFollowing ? "Unfollow" : "Follow"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: 40, color: "#666" }}>
+                <p>Not following anyone yet.</p>
+              </div>
+            )}
+            <div
+              style={{
+                marginTop: 20,
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={() => setShowFollowingModal(false)}
+                style={{
+                  ...interactiveButton,
+                  background: "#fff",
+                  color: "#000",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

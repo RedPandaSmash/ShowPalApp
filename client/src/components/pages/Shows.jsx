@@ -1,5 +1,5 @@
 import React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { popularShowsSection } from "./homeStyles";
 
@@ -27,6 +27,18 @@ export default function Shows() {
   });
 
   const [inputValue, setInputValue] = useState(() => page.toString());
+
+  const [headerText, setHeaderText] = useState(() => {
+    return isSearching
+      ? `Search Results for "${searchQuery}"`
+      : "Most Popular Shows";
+  });
+
+  const [skipFetch, setSkipFetch] = useState(false);
+
+  const [submittedQuery, setSubmittedQuery] = useState(() => {
+    return searchParams.get("q") || "";
+  });
 
   // Search function (only triggers on submit)
   const performSearch = async (query, searchPage = 1) => {
@@ -62,19 +74,16 @@ export default function Shows() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim().length >= 2) {
+      setSubmittedQuery(searchQuery);
+      setHeaderText(`Search Results for "${searchQuery}"`);
       setPage(1);
       performSearch(searchQuery, 1);
-    } else if (searchQuery.trim().length === 0) {
-      setIsSearching(false);
-      setPage(1);
     }
   };
 
-  // Clear search and return to popular shows
+  // Clear search text only
   const clearSearch = () => {
     setSearchQuery("");
-    setIsSearching(false);
-    setPage(1);
   };
 
   // Update URL parameters when page or search state changes
@@ -85,7 +94,7 @@ export default function Shows() {
       newParams.set("page", page.toString());
     }
 
-    if (isSearching && searchQuery.trim()) {
+    if (isSearching && searchQuery.trim() && searchQuery === submittedQuery) {
       newParams.set("q", searchQuery.trim());
     }
 
@@ -96,7 +105,7 @@ export default function Shows() {
     if (currentParams !== newParamsString) {
       setSearchParams(newParams, { replace: true });
     }
-  }, [page, searchQuery, isSearching, searchParams, setSearchParams]);
+  }, [page, isSearching, submittedQuery, setSearchParams]);
 
   // Fetch popular shows or search results depending on state
   useEffect(() => {
@@ -134,20 +143,19 @@ export default function Shows() {
     return () => {
       mounted = false;
     };
-  }, [page, isSearching, searchQuery]);
-
-  // Reset loading and search state when returning to Shows page (e.g., after navigating back)
-  useEffect(() => {
-    setLoading(false);
-    if (!searchQuery) {
-      setIsSearching(false);
-    }
-  }, [searchQuery]);
+  }, [page, isSearching]);
 
   // Sync inputValue with page changes
   useEffect(() => {
     setInputValue(page.toString());
   }, [page]);
+
+  // Update header text when search state changes
+  useEffect(() => {
+    setHeaderText(
+      isSearching ? `Search Results for "${searchQuery}"` : "Most Popular Shows"
+    );
+  }, [isSearching]);
 
   const gridStyle = {
     display: "grid",
@@ -291,11 +299,7 @@ export default function Shows() {
   return (
     <section style={sectionStyle}>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 16 }}>
-          {isSearching
-            ? `Search Results for "${searchQuery}"`
-            : "Most Popular Shows"}
-        </h2>
+        <h2 style={{ marginTop: 0, marginBottom: 16 }}>{headerText}</h2>
 
         {/* Search Bar */}
         <form

@@ -5,7 +5,8 @@ export const heroSection = {
   flexDirection: "column",
   alignItems: "center",
   justifyContent: "center",
-  padding: "48px 0 32px 0",
+  padding: "48px 0 0px 0",
+  margin: 0,
   boxShadow: "0 2px 16px rgba(0,0,0,0.08)",
 };
 
@@ -23,7 +24,7 @@ export const popularShowsSection = {
   borderRadius: "12px",
   boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
   padding: "24px",
-  margin: "24px 0",
+  margin: "0 auto",
   textAlign: "center",
 };
 
@@ -33,7 +34,7 @@ export const reviewsSection = {
   borderRadius: "12px",
   boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
   padding: "24px",
-  margin: "24px auto",
+  margin: "0px auto",
   textAlign: "center",
   display: "flex",
   flexDirection: "column",
@@ -46,7 +47,7 @@ export const faqSection = {
   borderRadius: "12px",
   boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
   padding: "24px",
-  margin: "24px auto 48px auto",
+  margin: "12px auto",
   textAlign: "center",
   display: "flex",
   flexDirection: "column",

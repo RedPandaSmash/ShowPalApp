@@ -154,7 +154,19 @@ router.get("/:userID/followers", async (req, res) => {
       return res.status(404).json({ error: "Profile not found" });
     }
 
-    res.json(profile.followers);
+    // Get profile data for each follower to include bio
+    const followersWithBio = await Promise.all(
+      (profile.followers || []).map(async (follower) => {
+        const followerProfile = await Profile.findOne({ userID: follower._id });
+        return {
+          _id: follower._id,
+          username: follower.username,
+          bio: followerProfile ? followerProfile.bio : "",
+        };
+      })
+    );
+
+    res.json({ followers: followersWithBio });
   } catch (error) {
     console.error("Error fetching followers:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -172,7 +184,21 @@ router.get("/:userID/following", async (req, res) => {
       return res.status(404).json({ error: "Profile not found" });
     }
 
-    res.json(profile.following);
+    // Get profile data for each following user to include bio
+    const followingWithBio = await Promise.all(
+      (profile.following || []).map(async (following) => {
+        const followingProfile = await Profile.findOne({
+          userID: following._id,
+        });
+        return {
+          _id: following._id,
+          username: following.username,
+          bio: followingProfile ? followingProfile.bio : "",
+        };
+      })
+    );
+
+    res.json({ following: followingWithBio });
   } catch (error) {
     console.error("Error fetching following:", error);
     res.status(500).json({ error: "Internal server error" });

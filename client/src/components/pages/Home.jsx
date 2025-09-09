@@ -8,12 +8,53 @@ import {
   faqSection,
 } from "./homeStyles";
 
+// SVG Star component with clipPath for partial fills
+function SVGStar({ fill = 1, size = 18, color = "#e5b800", id }) {
+  const pct = Math.max(0, Math.min(1, fill)) * 100;
+  const clipId = `clip-${id}`;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      style={{
+        display: "inline-block",
+        verticalAlign: "middle",
+        margin: "0 1px",
+      }}
+    >
+      <defs>
+        <clipPath id={clipId}>
+          <rect x="0" y="0" width={`${pct}%`} height="100%" />
+        </clipPath>
+      </defs>
+      {/* empty star */}
+      <path
+        d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"
+        fill="#ccc"
+      />
+      {/* filled part clipped to pct */}
+      <g clipPath={`url(#${clipId})`}>
+        <path
+          d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 19.897 4.665 24 6 15.595 0 9.748l8.332-1.73z"
+          fill={color}
+        />
+      </g>
+    </svg>
+  );
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [startIndex, setStartIndex] = useState(0);
+
+  const [reviews, setReviews] = useState([]);
+  const [showNames, setShowNames] = useState({});
+  const [reviewStartIndex, setReviewStartIndex] = useState(0);
 
   useEffect(() => {
     const fetchShows = async () => {
@@ -36,6 +77,42 @@ export default function Home() {
       }
     };
     fetchShows();
+  }, []);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/reviews");
+        if (!res.ok) throw new Error("Failed to fetch reviews");
+        const data = await res.json();
+        const recentReviews = data.reviews.slice(0, 10);
+        setReviews(recentReviews);
+
+        // Fetch show names
+        const showIDs = [...new Set(recentReviews.map((r) => r.showID))];
+        if (showIDs.length > 0) {
+          const showRes = await fetch("http://localhost:8080/api/shows/batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: showIDs }),
+          });
+          if (showRes.ok) {
+            const showData = await showRes.json();
+            const names = {};
+            for (const id in showData.results) {
+              const show = showData.results[id];
+              names[id] = show
+                ? show.name || show.original_name || "Unknown Show"
+                : "Unknown Show";
+            }
+            setShowNames(names);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching reviews:", err);
+      }
+    };
+    fetchReviews();
   }, []);
 
   const carouselStyle = {
@@ -153,10 +230,86 @@ export default function Home() {
       </section>
       <section style={reviewsSection}>
         <h2>Recent Reviews</h2>
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          <li>"Loved the suspense in Mystery Nights!" - User123</li>
-          <li>"Comedy Central had me laughing all night." - TVFan</li>
-        </ul>
+        {reviews.length === 0 ? (
+          <div>No reviews yet.</div>
+        ) : (
+          <div style={carouselStyle}>
+            <button
+              onClick={() =>
+                setReviewStartIndex(Math.max(0, reviewStartIndex - 1))
+              }
+              disabled={reviewStartIndex === 0}
+              style={reviewStartIndex === 0 ? disabledArrowStyle : arrowStyle}
+            >
+              ‹
+            </button>
+            {reviews
+              .slice(reviewStartIndex, reviewStartIndex + 3)
+              .map((review) => (
+                <div key={review._id} style={showCardStyle}>
+                  <div>
+                    <h3
+                      style={titleStyle}
+                      onClick={() => navigate(`/shows/${review.showID}`)}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = "#6c2eb6")
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+                    >
+                      {showNames[review.showID] || "Loading..."}
+                    </h3>
+                    <p style={{ margin: "4px 0", fontSize: "14px" }}>
+                      By{" "}
+                      <span
+                        style={{
+                          color: "#6c2eb6",
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                        }}
+                        onClick={() => navigate(`/user/${review.userID._id}`)}
+                      >
+                        {review.userID?.username || "Unknown User"}
+                      </span>
+                    </p>
+                    <div style={{ margin: "4px 0" }}>
+                      {Array.from({ length: 5 }).map((_, i) => {
+                        const raw = review.rating - i;
+                        const fill = Math.max(0, Math.min(1, raw));
+                        return (
+                          <span key={i} style={{ display: "inline-block" }}>
+                            <SVGStar
+                              fill={fill}
+                              size={18}
+                              color={"#e5b800"}
+                              id={`rev-${review._id}-${i}`}
+                            />
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 14 }}>
+                      {review.comment || "No comment"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            <button
+              onClick={() =>
+                setReviewStartIndex(
+                  Math.min(reviews.length - 3, reviewStartIndex + 1)
+                )
+              }
+              disabled={reviewStartIndex >= reviews.length - 3}
+              style={
+                reviewStartIndex >= reviews.length - 3
+                  ? disabledArrowStyle
+                  : arrowStyle
+              }
+            >
+              ›
+            </button>
+          </div>
+        )}
       </section>
       <section style={faqSection}>
         <h2>Frequently Asked Questions</h2>
