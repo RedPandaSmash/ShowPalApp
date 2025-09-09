@@ -1,17 +1,30 @@
 import React from "react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { popularShowsSection } from "./homeStyles";
 
 export default function Shows() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
+
+  // Initialize state from URL parameters
+  const [page, setPage] = useState(() => {
+    const pageParam = searchParams.get("page");
+    return pageParam ? parseInt(pageParam, 10) || 1 : 1;
+  });
+
+  const [searchQuery, setSearchQuery] = useState(() => {
+    return searchParams.get("q") || "";
+  });
+
+  const [isSearching, setIsSearching] = useState(() => {
+    return !!searchParams.get("q");
+  });
 
   // Search function
   const performSearch = async (query, searchPage = 1) => {
@@ -64,6 +77,27 @@ export default function Shows() {
     setIsSearching(false);
     setPage(1);
   };
+
+  // Update URL parameters when page or search state changes
+  useEffect(() => {
+    const newParams = new URLSearchParams();
+
+    if (page > 1) {
+      newParams.set("page", page.toString());
+    }
+
+    if (isSearching && searchQuery.trim()) {
+      newParams.set("q", searchQuery.trim());
+    }
+
+    // Only update if there are changes to avoid infinite loops
+    const currentParams = searchParams.toString();
+    const newParamsString = newParams.toString();
+
+    if (currentParams !== newParamsString) {
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [page, searchQuery, isSearching, searchParams, setSearchParams]);
 
   useEffect(() => {
     let mounted = true;
@@ -434,15 +468,26 @@ export default function Shows() {
             type="number"
             min={1}
             max={totalPages}
-            defaultValue={page}
+            value={page}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (!isNaN(v) && v >= 1 && v <= totalPages) {
+                setPage(v);
+                if (isSearching && searchQuery.trim()) {
+                  performSearch(searchQuery, v);
+                }
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                const v = Number(e.currentTarget.value);
+                const v = Number(e.target.value);
                 if (!isNaN(v)) {
                   const clampedPage = Math.min(Math.max(1, v), totalPages);
-                  setPage(clampedPage);
-                  if (isSearching && searchQuery.trim()) {
-                    performSearch(searchQuery, clampedPage);
+                  if (clampedPage !== page) {
+                    setPage(clampedPage);
+                    if (isSearching && searchQuery.trim()) {
+                      performSearch(searchQuery, clampedPage);
+                    }
                   }
                 }
               }
