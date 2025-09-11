@@ -270,14 +270,23 @@ function ListDropdown({ showID }) {
             background: "transparent",
             display: "flex",
             justifyContent: "center",
+            alignItems: "flex-start",
             pointerEvents: "auto",
+            padding: window.innerWidth <= 480 ? "16px" : "32px",
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
           <div
-            style={{ marginTop: 32, width: 420 }}
+            style={{
+              marginTop: window.innerWidth <= 480 ? 16 : 32,
+              width:
+                window.innerWidth <= 480
+                  ? "calc(100vw - 32px)"
+                  : "min(420px, calc(100vw - 64px))",
+              maxWidth: 420,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
@@ -286,10 +295,13 @@ function ListDropdown({ showID }) {
                 width: "100%",
                 background: "#fff",
                 borderRadius: 8,
-                padding: 16,
+                padding: window.innerWidth <= 480 ? 12 : 16,
                 color: "#000",
                 boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
                 position: "relative",
+                maxHeight:
+                  window.innerWidth <= 480 ? "calc(100vh - 100px)" : "80vh",
+                overflowY: "auto",
               }}
             >
               <button
@@ -661,36 +673,74 @@ export default function SpecificShow() {
     : [];
 
   return (
-    <section style={{ padding: 24, color: "#fff" }}>
+    <section
+      style={{
+        padding: window.innerWidth <= 480 ? "16px 0" : "24px",
+        color: "#fff",
+        maxWidth: "100%",
+        overflowX: "hidden",
+        boxSizing: "border-box",
+      }}
+    >
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
+          boxSizing: "border-box",
         }}
       >
-        <button onClick={() => navigate(-1)} style={{ marginBottom: 12 }}>
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            marginBottom: 12,
+            padding: window.innerWidth <= 480 ? "8px 12px" : "10px 16px",
+            fontSize: window.innerWidth <= 480 ? "14px" : "16px",
+          }}
+        >
           ← Back
         </button>
         <div
           style={{
-            ...popularShowsSection,
             display: "flex",
-            gap: 16,
-            alignItems: "flex-start",
+            flexDirection: window.innerWidth <= 768 ? "column" : "row",
+            gap: window.innerWidth <= 480 ? 12 : 16,
+            alignItems: window.innerWidth <= 768 ? "center" : "flex-start",
             color: "#000",
-            maxWidth: 1100,
             width: "100%",
+            background: "#ffd700",
+            padding: window.innerWidth <= 480 ? "16px 12px" : "24px",
+            boxSizing: "border-box",
+            borderRadius: "12px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
           }}
         >
           {poster ? (
             <img
               src={poster}
               alt={show.name || show.original_name}
-              style={{ width: 300, borderRadius: 8 }}
+              style={{
+                width:
+                  window.innerWidth <= 480
+                    ? 200
+                    : window.innerWidth <= 768
+                    ? 250
+                    : 300,
+                borderRadius: 8,
+                marginBottom: window.innerWidth <= 768 ? 16 : 0,
+              }}
             />
           ) : null}
-          <div style={{ textAlign: "left", flex: 1, position: "relative" }}>
+          <div
+            style={{
+              textAlign: "left",
+              flex: 1,
+              position: "relative",
+              width: window.innerWidth <= 768 ? "100%" : "auto",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <h1 style={{ marginTop: 0 }}>
                 {show.name || show.original_name}
@@ -797,7 +847,7 @@ export default function SpecificShow() {
                           `Season ${seasonData.season_number}`
                         }
                         style={{
-                          width: 180,
+                          width: window.innerWidth <= 480 ? 120 : 180,
                           borderRadius: 6,
                           display: "block",
                           marginBottom: 8,
@@ -822,11 +872,14 @@ export default function SpecificShow() {
         {/* Episodes section for selected season */}
         <div
           style={{
-            ...popularShowsSection,
             marginTop: 20,
             color: "#000",
-            maxWidth: 1100,
             width: "100%",
+            background: "#ffd700",
+            padding: window.innerWidth <= 480 ? "16px 12px" : "24px",
+            boxSizing: "border-box",
+            borderRadius: "12px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
           }}
         >
           <h3 style={{ marginTop: 0 }}>Episodes - Season {selectedSeason}</h3>
@@ -837,28 +890,69 @@ export default function SpecificShow() {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(1, 1fr)",
-                gap: 12,
+                gap: window.innerWidth <= 480 ? 8 : 12,
               }}
             >
               {seasonData.episodes.map((ep) => (
                 <div
                   key={ep.id}
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "60px 240px 1fr 140px",
                     border: "1px solid #000",
+                    display: window.innerWidth <= 768 ? "block" : "grid",
+                    gridTemplateColumns:
+                      window.innerWidth <= 768
+                        ? "none"
+                        : "60px 240px 1fr 140px",
                   }}
                 >
-                  <div style={{ borderRight: "1px solid #000", padding: 8 }}>
-                    <strong>#{ep.episode_number}</strong>
-                  </div>
-                  <div style={{ borderRight: "1px solid #000", padding: 8 }}>
-                    <strong>{ep.name}</strong>
-                  </div>
-                  <div style={{ borderRight: "1px solid #000", padding: 8 }}>
-                    {ep.overview}
-                  </div>
-                  <div style={{ padding: 8 }}>{ep.air_date || "N/A"}</div>
+                  {window.innerWidth <= 768 ? (
+                    // Mobile layout: stacked vertically
+                    <div style={{ padding: 12 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <strong style={{ fontSize: "18px" }}>
+                          #{ep.episode_number}
+                        </strong>
+                        <div style={{ flex: 1 }}>
+                          <strong style={{ fontSize: "16px" }}>
+                            {ep.name}
+                          </strong>
+                        </div>
+                        <div style={{ color: "#666", fontSize: "14px" }}>
+                          {ep.air_date || "N/A"}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: "14px", lineHeight: "1.4" }}>
+                        {ep.overview || "No description available."}
+                      </div>
+                    </div>
+                  ) : (
+                    // Desktop layout: grid
+                    <>
+                      <div
+                        style={{ borderRight: "1px solid #000", padding: 8 }}
+                      >
+                        <strong>#{ep.episode_number}</strong>
+                      </div>
+                      <div
+                        style={{ borderRight: "1px solid #000", padding: 8 }}
+                      >
+                        <strong>{ep.name}</strong>
+                      </div>
+                      <div
+                        style={{ borderRight: "1px solid #000", padding: 8 }}
+                      >
+                        {ep.overview}
+                      </div>
+                      <div style={{ padding: 8 }}>{ep.air_date || "N/A"}</div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -868,12 +962,12 @@ export default function SpecificShow() {
         {/* Reviews section */}
         <div
           style={{
-            ...popularShowsSection,
             marginTop: 20,
             color: "#000",
             background: "#fff4b5",
-            maxWidth: 1100,
             width: "100%",
+            boxSizing: "border-box",
+            padding: window.innerWidth <= 480 ? "16px 12px" : "24px",
           }}
           id="reviews-section"
         >
@@ -1123,7 +1217,19 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
     let mounted = true;
     const fetchNames = async () => {
       const ids = Array.from(
-        new Set((reviews || []).map((r) => String(r.userID)))
+        new Set(
+          (reviews || [])
+            .map((r) => {
+              // Handle both string and object userID formats
+              if (typeof r.userID === "string") {
+                return r.userID;
+              } else if (r.userID && r.userID._id) {
+                return r.userID._id;
+              }
+              return null;
+            })
+            .filter(Boolean)
+        )
       );
       const toFetch = ids.filter(
         (id) => id && !usernameCacheRef.current.has(id)
@@ -1199,6 +1305,10 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
             : false;
         const idStr =
           typeof r.userID === "string" ? r.userID : r.userID && r.userID._id;
+        const username =
+          usernames[String(idStr)] ||
+          (r.userID && typeof r.userID === "object" && r.userID.username) ||
+          "Unknown";
         return (
           <div
             id={`review-${r._id}`}
@@ -1228,9 +1338,7 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
                     textDecoration: "none",
                   }}
                 >
-                  {usernames[String(idStr)] ||
-                    (r.userID && r.userID.username) ||
-                    "Unknown"}
+                  {username}
                 </a>
                 <div style={{ fontWeight: 700 }}>Rating:</div>
                 <div>
@@ -1795,7 +1903,13 @@ function RepliesList({ replies, parentReviewId, level = 0, onPosted }) {
                     textDecoration: "none",
                   }}
                 >
-                  {(rep.userID && rep.userID.username) || String(rep.userID)}
+                  {(rep.userID &&
+                    typeof rep.userID === "object" &&
+                    rep.userID.username) ||
+                    (rep.userID &&
+                      typeof rep.userID === "string" &&
+                      rep.userID) ||
+                    "Unknown"}
                 </a>
                 <div style={{ color: "#444" }}>
                   responded to{" "}

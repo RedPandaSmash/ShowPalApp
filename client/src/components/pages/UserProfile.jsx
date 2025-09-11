@@ -1330,9 +1330,9 @@ export default function UserProfile() {
       <section
         style={{
           ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
+          padding: window.innerWidth <= 480 ? "16px 12px" : 24,
+          margin: window.innerWidth <= 480 ? "24px 0" : "24px auto",
+          paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
         <div
@@ -1474,9 +1474,9 @@ export default function UserProfile() {
       <section
         style={{
           ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
+          padding: window.innerWidth <= 480 ? "16px 12px" : 24,
+          margin: window.innerWidth <= 480 ? "24px 0" : "24px auto",
+          paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
         <h2 style={{ marginTop: 0, color: "#6c2eb6" }}>
@@ -1500,9 +1500,9 @@ export default function UserProfile() {
       <section
         style={{
           ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
+          padding: window.innerWidth <= 480 ? "16px 12px" : 24,
+          margin: window.innerWidth <= 480 ? "24px 0" : "24px auto",
+          paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
         <h2 style={{ marginTop: 0, color: "#6c2eb6" }}>Activity</h2>

@@ -1,7 +1,7 @@
 // Shared interactive item styles used by navbar, logged-in navbar, signup/login buttons, and footer
 export const interactiveItem = {
   cursor: "pointer",
-  padding: "8px 16px",
+  padding: window.innerWidth <= 480 ? "10px 12px" : "8px 16px",
   borderRadius: 6,
   transition: "background 0.15s, color 0.15s, box-shadow 0.15s",
   userSelect: "none",
@@ -25,7 +25,7 @@ export const interactiveActive = {
 // Permanent clickable button style (yellow background, purple text)
 export const interactiveButton = {
   cursor: "pointer",
-  padding: "8px 12px",
+  padding: window.innerWidth <= 480 ? "10px 14px" : "8px 12px",
   borderRadius: 6,
   background: "#ffd700",
   color: "#6c2eb6",
@@ -36,10 +36,10 @@ export const interactiveButton = {
 // Star rendering helper styles
 export const starBase = {
   display: "inline-block",
-  fontSize: 22,
-  lineHeight: "22px",
-  width: 22,
-  height: 22,
+  fontSize: window.innerWidth <= 480 ? 18 : 22,
+  lineHeight: window.innerWidth <= 480 ? "18px" : "22px",
+  width: window.innerWidth <= 480 ? 18 : 22,
+  height: window.innerWidth <= 480 ? 18 : 22,
   textAlign: "center",
   userSelect: "none",
 };

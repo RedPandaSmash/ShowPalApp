@@ -159,30 +159,36 @@ export default function Lists() {
 
   const gridWrap = {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: 16,
+    gridTemplateColumns:
+      window.innerWidth <= 480
+        ? "repeat(1, 1fr)"
+        : window.innerWidth <= 768
+        ? "repeat(2, 1fr)"
+        : "repeat(3, 1fr)",
+    gap: window.innerWidth <= 480 ? 12 : 16,
     justifyItems: "center",
   };
 
   const listCard = {
     width: "100%",
-    maxWidth: 320,
+    maxWidth: window.innerWidth <= 480 ? 280 : 320,
     ...cardStyle,
     display: "flex",
     flexDirection: "column",
-    gap: 8,
-    maxHeight: 360,
+    gap: window.innerWidth <= 480 ? 6 : 8,
+    maxHeight: window.innerWidth <= 480 ? 300 : 360,
+    padding: window.innerWidth <= 480 ? 8 : 12,
   };
 
   const showItem = {
     display: "flex",
-    gap: 8,
+    gap: window.innerWidth <= 480 ? 6 : 8,
     alignItems: "center",
   };
 
   const posterStyle = {
-    width: 64,
-    height: 90,
+    width: window.innerWidth <= 480 ? 48 : 64,
+    height: window.innerWidth <= 480 ? 68 : 90,
     objectFit: "cover",
     borderRadius: 6,
     cursor: "pointer",
@@ -975,9 +981,9 @@ export default function Lists() {
       <section
         style={{
           ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
+          padding: window.innerWidth <= 480 ? "16px 12px" : 24,
+          margin: window.innerWidth <= 480 ? "24px 0" : "24px auto",
+          paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
         <h2 style={{ marginTop: 0 }}>My Lists</h2>
@@ -1018,9 +1024,9 @@ export default function Lists() {
       <section
         style={{
           ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
+          padding: window.innerWidth <= 480 ? "16px 12px" : 24,
+          margin: window.innerWidth <= 480 ? "24px 0" : "24px auto",
+          paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
         <h2 style={{ marginTop: 0 }}>Lists by People I Follow</h2>
@@ -1063,9 +1069,9 @@ export default function Lists() {
       <section
         style={{
           ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
+          padding: window.innerWidth <= 480 ? "16px 12px" : 24,
+          margin: window.innerWidth <= 480 ? "24px 0" : "24px auto",
+          paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
         <h2 style={{ marginTop: 0 }}>Recent Lists</h2>
