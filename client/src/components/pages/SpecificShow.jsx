@@ -100,11 +100,46 @@ function ListDropdown({ showID }) {
   React.useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
+      document.body.style.height = "100vh";
+
+      // Prevent scroll events from propagating
+      const preventScroll = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      };
+
+      // Add scroll prevention to various elements
+      document.addEventListener("wheel", preventScroll, { passive: false });
+      document.addEventListener("touchmove", preventScroll, { passive: false });
+      document.addEventListener("keydown", (e) => {
+        if (
+          [
+            "ArrowUp",
+            "ArrowDown",
+            "PageUp",
+            "PageDown",
+            "Home",
+            "End",
+          ].includes(e.key)
+        ) {
+          preventScroll(e);
+        }
+      });
+
+      return () => {
+        document.removeEventListener("wheel", preventScroll);
+        document.removeEventListener("touchmove", preventScroll);
+        document.removeEventListener("keydown", preventScroll);
+      };
     } else {
       document.body.style.overflow = "";
+      document.body.style.height = "";
     }
+
     return () => {
       document.body.style.overflow = "";
+      document.body.style.height = "";
     };
   }, [open]);
 
@@ -216,9 +251,9 @@ function ListDropdown({ showID }) {
   };
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "static" }}>
       <div
-        style={{ position: "relative", display: "inline-block" }}
+        style={{ position: "static", display: "inline-block" }}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
       >
@@ -264,44 +299,39 @@ function ListDropdown({ showID }) {
         // overlay inside parent bounds; clicking outside modal (the overlay) closes
         <div
           style={{
-            position: "absolute",
+            position: "fixed",
             inset: 0,
-            zIndex: 200,
-            background: "transparent",
+            background: "rgba(0,0,0,0.5)",
             display: "flex",
+            alignItems: "center",
             justifyContent: "center",
-            alignItems: "flex-start",
-            pointerEvents: "auto",
-            padding: window.innerWidth <= 480 ? "16px" : "32px",
+            zIndex: 2000,
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
-              marginTop: window.innerWidth <= 480 ? 16 : 32,
               width:
                 window.innerWidth <= 480
                   ? "calc(100vw - 32px)"
                   : "min(420px, calc(100vw - 64px))",
               maxWidth: 420,
+              maxHeight:
+                window.innerWidth <= 480 ? "calc(100vh - 100px)" : "80vh",
+              overflowY: "auto",
+              background: "#fff",
+              padding: window.innerWidth <= 480 ? 12 : 16,
+              borderRadius: 8,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div
               ref={modalRef}
               style={{
-                width: "100%",
-                background: "#fff",
-                borderRadius: 8,
-                padding: window.innerWidth <= 480 ? 12 : 16,
-                color: "#000",
-                boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
                 position: "relative",
-                maxHeight:
-                  window.innerWidth <= 480 ? "calc(100vh - 100px)" : "80vh",
-                overflowY: "auto",
               }}
             >
               <button
@@ -967,12 +997,14 @@ export default function SpecificShow() {
             background: "#fff4b5",
             width: "100%",
             boxSizing: "border-box",
-            padding: window.innerWidth <= 480 ? "16px 12px" : "24px",
+            padding: window.innerWidth <= 480 ? "16px" : "24px",
+            borderRadius: "12px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
           }}
           id="reviews-section"
         >
           <h3 style={{ marginTop: 0 }}>Reviews</h3>
-          <div style={{ padding: 12 }}>
+          <div style={{ padding: window.innerWidth <= 480 ? "0 4px" : "0" }}>
             {isSignedIn ? (
               <ReviewForm
                 showID={showID}
@@ -989,7 +1021,9 @@ export default function SpecificShow() {
               {reviewsLoading ? (
                 <div>Loading reviews...</div>
               ) : reviews.length === 0 ? (
-                <div>No one's left a review yet. You could be the first!</div>
+                <div style={{ textAlign: "center" }}>
+                  No one's left a review yet. You could be the first!
+                </div>
               ) : (
                 <ReviewList
                   reviews={reviews}
