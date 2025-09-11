@@ -207,13 +207,23 @@ export default function Lists() {
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
+            justifyContent: "center",
             alignItems: "center",
             marginBottom: 8,
+            position: "relative",
           }}
         >
-          <h2 style={{ marginTop: 0 }}>Lists by People I Follow</h2>
-          <div style={{ display: "flex", gap: "8px" }}>
+          <h2 style={{ marginTop: 0, marginBottom: 0 }}>
+            Lists by People I Follow
+          </h2>
+          <div
+            style={{
+              position: "absolute",
+              right: 0,
+              display: "flex",
+              gap: "8px",
+            }}
+          >
             {Object.values(showsMeta).some((meta) => meta === null) && (
               <button
                 onClick={refreshFailedShows}
@@ -229,37 +239,6 @@ export default function Lists() {
                 ↻ Refresh Failed
               </button>
             )}
-            <button
-              onClick={async () => {
-                try {
-                  const res = await fetch(
-                    `http://localhost:8080/api/shows/clear-cache`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                    }
-                  );
-                  if (res.ok) {
-                    console.log("Cache cleared successfully");
-                    // Clear client-side cache and refetch
-                    setShowsMeta({});
-                    window.location.reload();
-                  }
-                } catch (e) {
-                  console.error("Failed to clear cache:", e);
-                }
-              }}
-              style={{
-                ...interactiveButton,
-                padding: "4px 8px",
-                fontSize: "0.8em",
-                background: "#666",
-                color: "#fff",
-              }}
-              title="Clear server cache and reload"
-            >
-              🗑️ Clear Cache
-            </button>
           </div>
         </div>
         {!isSignedIn ? (

@@ -1080,7 +1080,7 @@ export default function ListManager({
           paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
-        <h2 style={{ marginTop: 0, color: "#6c2eb6" }}>{title}</h2>
+        <h2 style={{ marginTop: 0, color: "#000" }}>{title}</h2>
         <div style={gridWrap}>
           {/* Default Lists */}
           {defaultLists.map((list) => renderListCard(list, true))}
