@@ -240,6 +240,14 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// POST /api/shows/clear-cache
+router.post("/clear-cache", (req, res) => {
+  const cacheSize = showCache.size;
+  showCache.clear();
+  console.log(`Cleared ${cacheSize} items from show cache`);
+  return res.json({ message: `Cleared ${cacheSize} items from cache` });
+});
+
 // POST /api/shows/batch  { ids: [id1,id2,...] }
 router.post("/batch", async (req, res) => {
   const { ids = [] } = req.body || {};
@@ -264,40 +272,98 @@ router.post("/batch", async (req, res) => {
     const toFetch = [];
     for (const id of uniqueIds) {
       const cached = showCache.get(String(id));
-      if (cached && cached.expiresAt > now) {
+      if (cached && cached.expiresAt > now && cached.data !== null) {
+        // Only use cached data if it's not null (don't cache failures)
         results[id] = cached.data;
       } else {
         toFetch.push(id);
       }
     }
 
-    // Fetch missing ids sequentially to avoid bursting TMDB (keeps previous behavior)
-    for (const id of toFetch) {
-      try {
-        const url = new URL(`https://api.themoviedb.org/3/tv/${id}`);
-        if (!token && apiKey) url.searchParams.set("api_key", apiKey);
-        const resp = await fetch(url.toString(), { headers });
-        if (!resp.ok) {
-          // store null in both results and cache (so we won't repeatedly hammer missing ids)
-          results[id] = null;
-          showCache.set(String(id), {
-            data: null,
-            expiresAt: now + SHOW_CACHE_TTL_MS,
-          });
-          continue;
+    console.log(
+      `Batch fetch: ${toFetch.length} shows to fetch from ${ids.length} requested`
+    );
+
+    // Fetch missing ids with controlled concurrency to balance speed and rate limiting
+    const CONCURRENCY_LIMIT = 5; // Allow up to 5 concurrent requests
+    const fetchPromises = [];
+
+    for (let i = 0; i < toFetch.length; i += CONCURRENCY_LIMIT) {
+      const batch = toFetch.slice(i, i + CONCURRENCY_LIMIT);
+      const batchPromises = batch.map(async (id) => {
+        // Add small delay between batches to be more respectful to TMDB
+        if (i > 0) await new Promise((resolve) => setTimeout(resolve, 100));
+
+        let retries = 2; // Retry failed requests up to 2 times
+        while (retries >= 0) {
+          try {
+            const url = new URL(`https://api.themoviedb.org/3/tv/${id}`);
+            if (!token && apiKey) url.searchParams.set("api_key", apiKey);
+            const resp = await fetch(url.toString(), { headers });
+
+            if (!resp.ok) {
+              const errorText = await resp.text();
+              if (resp.status === 404) {
+                // Show doesn't exist, don't cache this as it might be a temporary issue
+                console.log(`Show ${id} not found (404): ${errorText}`);
+                results[id] = null;
+                // Don't cache 404s as they might be temporary
+                return;
+              } else if (resp.status === 429) {
+                // Rate limited, wait and retry
+                console.log(`Rate limited for show ${id}, retrying...`);
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                retries--;
+                continue;
+              } else {
+                // Other error, don't cache after retries to allow future attempts
+                console.log(
+                  `Error fetching show ${id}: ${resp.status} - ${errorText}`
+                );
+                if (retries === 0) {
+                  results[id] = null;
+                  // Don't cache other errors to allow future retries
+                }
+                retries--;
+                continue;
+              }
+            }
+
+            const data = await resp.json();
+            results[id] = data;
+            // Cache successful fetches (this will overwrite any previous null cache entries)
+            showCache.set(String(id), {
+              data,
+              expiresAt: now + SHOW_CACHE_TTL_MS,
+            });
+            console.log(
+              `Successfully cached show ${id} with poster: ${data.poster_path}`
+            );
+            return;
+          } catch (err) {
+            console.error(`Network error fetching show ${id}:`, err.message);
+            if (retries === 0) {
+              results[id] = null;
+              // Don't cache network errors to allow future retries
+            }
+            retries--;
+            if (retries >= 0) {
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            }
+          }
         }
-        const data = await resp.json();
-        results[id] = data;
-        // Cache successful fetches
-        showCache.set(String(id), { data, expiresAt: now + SHOW_CACHE_TTL_MS });
-      } catch (err) {
-        console.error("batch show fetch error for id", id, err);
-        results[id] = null;
-        showCache.set(String(id), {
-          data: null,
-          expiresAt: now + SHOW_CACHE_TTL_MS,
-        });
-      }
+      });
+
+      fetchPromises.push(...batchPromises);
+    }
+
+    // Wait for all fetches to complete
+    await Promise.all(fetchPromises);
+
+    // Log the results for debugging
+    const failedIds = Object.keys(results).filter((id) => results[id] === null);
+    if (failedIds.length > 0) {
+      console.log(`Failed to fetch ${failedIds.length} shows:`, failedIds);
     }
 
     // Ensure response includes entries for every requested id (preserve original order and duplicates)
@@ -305,6 +371,12 @@ router.post("/batch", async (req, res) => {
     for (const id of ids) {
       finalResults[id] = results[id] !== undefined ? results[id] : null;
     }
+
+    console.log(
+      `Batch fetch complete: ${
+        Object.keys(finalResults).length
+      } results returned`
+    );
     return res.json({ results: finalResults });
   } catch (err) {
     console.error("Error in batch show fetch", err);
