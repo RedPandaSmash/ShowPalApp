@@ -8,13 +8,13 @@ export const footerContainer = {
   flexDirection: "row",
   justifyContent: "space-around",
   alignItems: "center",
-  padding: "16px 0",
+  padding: window.innerWidth <= 480 ? "12px 0" : "16px 0",
   zIndex: 100,
-  fontSize: "1rem",
+  fontSize: window.innerWidth <= 480 ? "0.9rem" : "1rem",
 };
 
 export const footerItem = {
-  margin: "0 16px",
+  margin: window.innerWidth <= 480 ? "0 8px" : "0 16px",
   cursor: "pointer",
   transition: "background 0.15s, color 0.15s",
   color: "#fff",

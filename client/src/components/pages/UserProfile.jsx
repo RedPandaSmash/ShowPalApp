@@ -4,6 +4,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import AuthContext from "../../context/AuthContext";
 import { popularShowsSection } from "./homeStyles";
 import { interactiveButton } from "../multiuse/interactiveStyles";
+import ListManager from "../multiuse/ListManager";
 
 // SVG Star component with clipPath for partial fills
 function SVGStar({ fill = 1, size = 18, color = "#e5b800", id }) {
@@ -1330,9 +1331,9 @@ export default function UserProfile() {
       <section
         style={{
           ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
+          padding: window.innerWidth <= 480 ? "16px 12px" : 24,
+          margin: window.innerWidth <= 480 ? "24px 0" : "24px auto",
+          paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
         <div
@@ -1471,38 +1472,20 @@ export default function UserProfile() {
       </section>
 
       {/* My Lists Section */}
-      <section
-        style={{
-          ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
-        }}
-      >
-        <h2 style={{ marginTop: 0, color: "#6c2eb6" }}>
-          {profile.userID.username}'s Lists
-        </h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 16,
-            justifyItems: "center",
-          }}
-        >
-          {/* Default Lists */}
-          {defaultLists.map((list) => renderListCard(list, true))}
-          {/* User Lists */}
-          {userLists.map((list) => renderListCard(list, false))}
-        </div>
-      </section>
+      <ListManager
+        userId={userId}
+        isOwnProfile={isOwnProfile}
+        title={`${profile.userID.username}'s Lists`}
+        showEditButtons={isOwnProfile}
+        showCreator={false}
+      />
 
       <section
         style={{
           ...popularShowsSection,
-          padding: 24,
-          margin: "24px auto",
-          paddingBottom: 48,
+          padding: window.innerWidth <= 480 ? "16px 12px" : 24,
+          margin: window.innerWidth <= 480 ? "24px 0" : "24px auto",
+          paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
         <h2 style={{ marginTop: 0, color: "#6c2eb6" }}>Activity</h2>

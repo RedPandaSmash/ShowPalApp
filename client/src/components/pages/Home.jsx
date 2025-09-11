@@ -55,6 +55,7 @@ export default function Home() {
   const [reviews, setReviews] = useState([]);
   const [showNames, setShowNames] = useState({});
   const [reviewStartIndex, setReviewStartIndex] = useState(0);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
     const fetchShows = async () => {
@@ -115,21 +116,63 @@ export default function Home() {
     fetchReviews();
   }, []);
 
+  // Determine number of items to show based on screen size
+  const getItemsPerPage = () => {
+    if (windowWidth <= 480) return 1;
+    if (windowWidth <= 768) return 2;
+    return 3;
+  };
+
+  const itemsPerPage = getItemsPerPage();
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const carouselStyle = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "16px",
+    gap:
+      windowWidth <= 480
+        ? "2px"
+        : windowWidth <= 640
+        ? "4px"
+        : windowWidth <= 768
+        ? "8px"
+        : "16px",
+    flexWrap:
+      windowWidth <= 480
+        ? "nowrap"
+        : windowWidth <= 640
+        ? "nowrap"
+        : windowWidth <= 768
+        ? "wrap"
+        : "nowrap",
+    justifyContent: windowWidth <= 480 ? "center" : "center",
+    overflowX: windowWidth <= 480 ? "auto" : "visible",
+    padding: windowWidth <= 480 ? "0 4px" : windowWidth <= 640 ? "0 8px" : "0",
+    maxWidth: "100%",
+    boxSizing: "border-box",
   };
 
   const arrowStyle = {
-    fontSize: "24px",
+    fontSize: windowWidth <= 480 ? "18px" : "24px",
     cursor: "pointer",
     color: "#6c2eb6",
-    padding: "8px",
+    padding: windowWidth <= 480 ? "4px" : "8px",
     borderRadius: "50%",
     background: "#ffd700",
     border: "none",
+    flexShrink: 0,
+    minWidth: windowWidth <= 480 ? "28px" : "auto",
+    minHeight: windowWidth <= 480 ? "28px" : "auto",
   };
 
   const disabledArrowStyle = {
@@ -141,28 +184,30 @@ export default function Home() {
   const showCardStyle = {
     background: "#fff",
     color: "#000",
-    padding: "12px",
+    padding: windowWidth <= 480 ? "8px" : "12px",
     borderRadius: 8,
-    minHeight: 200,
+    minHeight: windowWidth <= 480 ? 160 : 200,
     boxShadow: "0 1px 6px rgba(0,0,0,0.08)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    width: "200px",
+    width:
+      windowWidth <= 480 ? "140px" : windowWidth <= 768 ? "160px" : "200px",
+    flexShrink: 0,
   };
 
   const posterStyle = {
     width: "100%",
-    height: 120,
+    height: windowWidth <= 480 ? 100 : 120,
     objectFit: "cover",
     borderRadius: 6,
-    marginBottom: 8,
+    marginBottom: windowWidth <= 480 ? 6 : 8,
     cursor: "pointer",
   };
 
   const titleStyle = {
     margin: "0 0 8px 0",
-    fontSize: "16px",
+    fontSize: windowWidth <= 480 ? "14px" : "16px",
     cursor: "pointer",
     transition: "color 0.15s",
   };
@@ -189,35 +234,39 @@ export default function Home() {
               >
                 ‹
               </button>
-              {shows.slice(startIndex, startIndex + 3).map((show) => (
-                <div key={show.id} style={showCardStyle}>
-                  {show.poster_path && (
-                    <img
-                      src={`https://image.tmdb.org/t/p/w300${show.poster_path}`}
-                      alt={show.original_name || show.name}
-                      style={posterStyle}
+              {shows
+                .slice(startIndex, startIndex + itemsPerPage)
+                .map((show) => (
+                  <div key={show.id} style={showCardStyle}>
+                    {show.poster_path && (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w300${show.poster_path}`}
+                        alt={show.original_name || show.name}
+                        style={posterStyle}
+                        onClick={() => navigate(`/shows/${show.id}`)}
+                      />
+                    )}
+                    <h3
+                      style={titleStyle}
                       onClick={() => navigate(`/shows/${show.id}`)}
-                    />
-                  )}
-                  <h3
-                    style={titleStyle}
-                    onClick={() => navigate(`/shows/${show.id}`)}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.color = "#6c2eb6")
-                    }
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "")}
-                  >
-                    {show.original_name || show.name}
-                  </h3>
-                </div>
-              ))}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.color = "#6c2eb6")
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+                    >
+                      {show.original_name || show.name}
+                    </h3>
+                  </div>
+                ))}
               <button
                 onClick={() =>
-                  setStartIndex(Math.min(shows.length - 3, startIndex + 1))
+                  setStartIndex(
+                    Math.min(shows.length - itemsPerPage, startIndex + 1)
+                  )
                 }
-                disabled={startIndex >= shows.length - 3}
+                disabled={startIndex >= shows.length - itemsPerPage}
                 style={
-                  startIndex >= shows.length - 3
+                  startIndex >= shows.length - itemsPerPage
                     ? disabledArrowStyle
                     : arrowStyle
                 }
@@ -227,120 +276,122 @@ export default function Home() {
             </div>
           )}
         </div>
-      </section>
-      <section style={reviewsSection}>
-        <h2>Recent Reviews</h2>
-        {reviews.length === 0 ? (
-          <div>No reviews yet.</div>
-        ) : (
-          <div style={carouselStyle}>
-            <button
-              onClick={() =>
-                setReviewStartIndex(Math.max(0, reviewStartIndex - 1))
-              }
-              disabled={reviewStartIndex === 0}
-              style={reviewStartIndex === 0 ? disabledArrowStyle : arrowStyle}
-            >
-              ‹
-            </button>
-            {reviews
-              .slice(reviewStartIndex, reviewStartIndex + 3)
-              .map((review) => (
-                <div key={review._id} style={showCardStyle}>
-                  <div>
-                    <h3
-                      style={titleStyle}
-                      onClick={() => navigate(`/shows/${review.showID}`)}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.color = "#6c2eb6")
-                      }
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "")}
-                    >
-                      {showNames[review.showID] || "Loading..."}
-                    </h3>
-                    <p style={{ margin: "4px 0", fontSize: "14px" }}>
-                      By{" "}
-                      <span
-                        style={{
-                          color: "#6c2eb6",
-                          cursor: "pointer",
-                          textDecoration: "underline",
-                        }}
-                        onClick={() => navigate(`/user/${review.userID._id}`)}
+        <div style={reviewsSection}>
+          <h2>Recent Reviews</h2>
+          {reviews.length === 0 ? (
+            <div>No reviews yet.</div>
+          ) : (
+            <div style={carouselStyle}>
+              <button
+                onClick={() =>
+                  setReviewStartIndex(Math.max(0, reviewStartIndex - 1))
+                }
+                disabled={reviewStartIndex === 0}
+                style={reviewStartIndex === 0 ? disabledArrowStyle : arrowStyle}
+              >
+                ‹
+              </button>
+              {reviews
+                .slice(reviewStartIndex, reviewStartIndex + itemsPerPage)
+                .map((review) => (
+                  <div key={review._id} style={showCardStyle}>
+                    <div>
+                      <h3
+                        style={titleStyle}
+                        onClick={() => navigate(`/shows/${review.showID}`)}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.color = "#6c2eb6")
+                        }
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "")}
                       >
-                        {review.userID?.username || "Unknown User"}
-                      </span>
-                    </p>
-                    <div style={{ margin: "4px 0" }}>
-                      {Array.from({ length: 5 }).map((_, i) => {
-                        const raw = review.rating - i;
-                        const fill = Math.max(0, Math.min(1, raw));
-                        return (
-                          <span key={i} style={{ display: "inline-block" }}>
-                            <SVGStar
-                              fill={fill}
-                              size={18}
-                              color={"#e5b800"}
-                              id={`rev-${review._id}-${i}`}
-                            />
-                          </span>
-                        );
-                      })}
+                        {showNames[review.showID] || "Loading..."}
+                      </h3>
+                      <p style={{ margin: "4px 0", fontSize: "14px" }}>
+                        By{" "}
+                        <span
+                          style={{
+                            color: "#6c2eb6",
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                          }}
+                          onClick={() => navigate(`/user/${review.userID._id}`)}
+                        >
+                          {review.userID?.username || "Unknown User"}
+                        </span>
+                      </p>
+                      <div style={{ margin: "4px 0" }}>
+                        {Array.from({ length: 5 }).map((_, i) => {
+                          const raw = review.rating - i;
+                          const fill = Math.max(0, Math.min(1, raw));
+                          return (
+                            <span key={i} style={{ display: "inline-block" }}>
+                              <SVGStar
+                                fill={fill}
+                                size={18}
+                                color={"#e5b800"}
+                                id={`rev-${review._id}-${i}`}
+                              />
+                            </span>
+                          );
+                        })}
+                      </div>
+                      <p style={{ margin: 0, fontSize: 14 }}>
+                        {review.comment || "No comment"}
+                      </p>
                     </div>
-                    <p style={{ margin: 0, fontSize: 14 }}>
-                      {review.comment || "No comment"}
-                    </p>
                   </div>
-                </div>
-              ))}
-            <button
-              onClick={() =>
-                setReviewStartIndex(
-                  Math.min(reviews.length - 3, reviewStartIndex + 1)
-                )
-              }
-              disabled={reviewStartIndex >= reviews.length - 3}
-              style={
-                reviewStartIndex >= reviews.length - 3
-                  ? disabledArrowStyle
-                  : arrowStyle
-              }
-            >
-              ›
-            </button>
+                ))}
+              <button
+                onClick={() =>
+                  setReviewStartIndex(
+                    Math.min(
+                      reviews.length - itemsPerPage,
+                      reviewStartIndex + 1
+                    )
+                  )
+                }
+                disabled={reviewStartIndex >= reviews.length - itemsPerPage}
+                style={
+                  reviewStartIndex >= reviews.length - itemsPerPage
+                    ? disabledArrowStyle
+                    : arrowStyle
+                }
+              >
+                ›
+              </button>
+            </div>
+          )}
+        </div>
+        <div style={faqSection}>
+          <h2>Frequently Asked Questions</h2>
+          <div
+            style={{
+              maxWidth: 600,
+              margin: "0 auto",
+              textAlign: "left",
+              padding: windowWidth <= 480 ? "0 16px" : "0",
+            }}
+          >
+            <div style={{ marginBottom: "16px" }}>
+              <strong>How do I add shows to my lists?</strong>
+              <br />
+              Find the page for the show you want to add. There are three dots
+              that will bring up a menu to add and remove that show from any of
+              your lists!{" "}
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <strong>Can I write reviews?</strong>
+              <br />
+              Yes! Visit any show page and leave your thoughts, along with a
+              rating.
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <strong>Is ShowPal free?</strong>
+              <br />
+              Absolutely. Enjoy tracking and reviewing shows at no cost.
+            </div>
           </div>
-        )}
-      </section>
-      <section style={faqSection}>
-        <h2>Frequently Asked Questions</h2>
-        <ul
-          style={{
-            listStyle: "none",
-            padding: 0,
-            textAlign: "left",
-            maxWidth: 600,
-            margin: "0 auto",
-          }}
-        >
-          <li>
-            <strong>How do I add shows to my lists?</strong>
-            <br />
-            Find the page for the show you want to add. There are three dots
-            that will bring up a menu to add and remove that show from any of
-            your lists!{" "}
-          </li>
-          <li>
-            <strong>Can I write reviews?</strong>
-            <br />
-            Yes! Visit any show page and leave your thoughts, along with a
-            rating.
-          </li>
-          <li>
-            <strong>Is ShowPal free?</strong>
-            <br />
-            Absolutely. Enjoy tracking and reviewing shows at no cost.
-          </li>
-        </ul>
+        </div>
       </section>
     </div>
   );

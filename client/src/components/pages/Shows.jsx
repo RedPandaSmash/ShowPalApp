@@ -40,6 +40,8 @@ export default function Shows() {
     return searchParams.get("q") || "";
   });
 
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
   // Search function (only triggers on submit)
   const performSearch = async (query, searchPage = 1) => {
     if (!query.trim()) {
@@ -157,10 +159,27 @@ export default function Shows() {
     );
   }, [isSearching]);
 
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const gridStyle = {
     display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "16px",
+    gridTemplateColumns:
+      windowWidth <= 480
+        ? "repeat(1, 1fr)"
+        : windowWidth <= 768
+        ? "repeat(2, 1fr)"
+        : windowWidth <= 1024
+        ? "repeat(3, 1fr)"
+        : "repeat(4, 1fr)",
+    gap: windowWidth <= 480 ? "12px" : "16px",
     width: "100%",
   };
 
@@ -193,9 +212,10 @@ export default function Shows() {
 
   const sectionStyle = {
     ...popularShowsSection,
-    padding: 24,
-    margin: "24px auto",
-    paddingBottom: 48,
+    width: windowWidth <= 480 ? "100%" : "90%",
+    padding: windowWidth <= 480 ? "16px" : 24,
+    margin: windowWidth <= 480 ? "24px 0" : "24px auto",
+    paddingBottom: windowWidth <= 480 ? 32 : 48,
   };
 
   if (loading)
