@@ -12,19 +12,14 @@ export default function Shows() {
   const [error, setError] = useState(null);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Initialize state from URL parameters
-  const [page, setPage] = useState(() => {
+  // Get current values from URL parameters
+  const page = (() => {
     const pageParam = searchParams.get("page");
     return pageParam ? parseInt(pageParam, 10) || 1 : 1;
-  });
+  })();
 
-  const [searchQuery, setSearchQuery] = useState(() => {
-    return searchParams.get("q") || "";
-  });
-
-  const [isSearching, setIsSearching] = useState(() => {
-    return !!searchParams.get("q");
-  });
+  const searchQuery = searchParams.get("q") || "";
+  const isSearching = !!searchQuery;
 
   const [inputValue, setInputValue] = useState(() => page.toString());
 
@@ -40,17 +35,22 @@ export default function Shows() {
     return searchParams.get("q") || "";
   });
 
+  const [localSearchQuery, setLocalSearchQuery] = useState(() => {
+    return searchParams.get("q") || "";
+  });
+
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   // Search function (only triggers on submit)
   const performSearch = async (query, searchPage = 1) => {
     if (!query.trim()) {
-      setIsSearching(false);
-      setPage(1);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("q");
+      newParams.delete("page");
+      setSearchParams(newParams);
       return;
     }
     setLoading(true);
-    setIsSearching(true);
     try {
       const res = await fetch(
         `http://localhost:8080/api/shows/search?query=${encodeURIComponent(
@@ -66,7 +66,6 @@ export default function Shows() {
     } catch (err) {
       console.error("Search error:", err);
       setError(`Search failed: ${err.message}`);
-      setIsSearching(false);
     } finally {
       setLoading(false);
     }
@@ -75,39 +74,23 @@ export default function Shows() {
   // Only search on submit (Enter or Search button)
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (searchQuery.trim().length >= 2) {
-      setSubmittedQuery(searchQuery);
-      setHeaderText(`Search Results for "${searchQuery}"`);
-      setPage(1);
-      performSearch(searchQuery, 1);
+    if (localSearchQuery.trim().length >= 2) {
+      setSubmittedQuery(localSearchQuery);
+      setHeaderText(`Search Results for "${localSearchQuery}"`);
+      const newParams = new URLSearchParams();
+      newParams.set("q", localSearchQuery.trim());
+      newParams.set("page", "1");
+      setSearchParams(newParams);
     }
   };
 
   // Clear search text only
   const clearSearch = () => {
-    setSearchQuery("");
+    setLocalSearchQuery("");
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("q");
+    setSearchParams(newParams);
   };
-
-  // Update URL parameters when page or search state changes
-  useEffect(() => {
-    const newParams = new URLSearchParams();
-
-    if (page > 1) {
-      newParams.set("page", page.toString());
-    }
-
-    if (isSearching && searchQuery.trim() && searchQuery === submittedQuery) {
-      newParams.set("q", searchQuery.trim());
-    }
-
-    // Only update if there are changes to avoid infinite loops
-    const currentParams = searchParams.toString();
-    const newParamsString = newParams.toString();
-
-    if (currentParams !== newParamsString) {
-      setSearchParams(newParams, { replace: true });
-    }
-  }, [page, isSearching, submittedQuery, setSearchParams]);
 
   // Fetch popular shows or search results depending on state
   useEffect(() => {
@@ -127,8 +110,15 @@ export default function Shows() {
         if (!mounted) return;
         if (typeof data.total_pages === "number")
           setTotalPages(data.total_pages);
-        if (typeof data.total_pages === "number" && page > data.total_pages) {
-          setPage(data.total_pages);
+        // Handle page bounds by redirecting to valid page
+        if (
+          typeof data.total_pages === "number" &&
+          page > data.total_pages &&
+          data.total_pages > 0
+        ) {
+          const newParams = new URLSearchParams(searchParams);
+          newParams.set("page", data.total_pages.toString());
+          setSearchParams(newParams);
           return;
         }
         const items = Array.isArray(data.results) ? data.results : [];
@@ -145,7 +135,12 @@ export default function Shows() {
     return () => {
       mounted = false;
     };
-  }, [page, isSearching]);
+  }, [page, isSearching, searchQuery, searchParams, setSearchParams]);
+
+  // Sync local search query with URL changes
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
 
   // Sync inputValue with page changes
   useEffect(() => {
@@ -226,17 +221,15 @@ export default function Shows() {
     return <div style={{ padding: 24, color: "#000" }}>Error: {error}</div>;
 
   const onFirst = () => {
-    setPage(1);
-    if (isSearching && searchQuery.trim()) {
-      performSearch(searchQuery, 1);
-    }
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("page", "1");
+    setSearchParams(newParams);
   };
 
   const onLast = () => {
-    setPage(totalPages);
-    if (isSearching && searchQuery.trim()) {
-      performSearch(searchQuery, totalPages);
-    }
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("page", totalPages.toString());
+    setSearchParams(newParams);
   };
 
   const renderPageButtons = () => {
@@ -271,10 +264,9 @@ export default function Shows() {
         <button
           key={p}
           onClick={() => {
-            setPage(p);
-            if (isSearching && searchQuery.trim()) {
-              performSearch(searchQuery, p);
-            }
+            const newParams = new URLSearchParams(searchParams);
+            newParams.set("page", p.toString());
+            setSearchParams(newParams);
           }}
           style={{
             padding: "6px 10px",
@@ -345,8 +337,8 @@ export default function Shows() {
             <input
               type="text"
               placeholder="Search for TV shows..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={localSearchQuery}
+              onChange={(e) => setLocalSearchQuery(e.target.value)}
               style={{
                 width: "100%",
                 padding: "12px 44px 12px 16px", // Increased padding to accommodate both buttons
@@ -518,10 +510,9 @@ export default function Shows() {
                 if (!isNaN(v) && v >= 1 && v <= totalPages) {
                   const clampedPage = Math.min(Math.max(1, v), totalPages);
                   if (clampedPage !== page) {
-                    setPage(clampedPage);
-                    if (isSearching && searchQuery.trim()) {
-                      performSearch(searchQuery, clampedPage);
-                    }
+                    const newParams = new URLSearchParams(searchParams);
+                    newParams.set("page", clampedPage.toString());
+                    setSearchParams(newParams);
                   }
                 }
               }
