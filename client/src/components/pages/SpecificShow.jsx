@@ -2325,7 +2325,7 @@ function InlineReplyForm({
         background: "#fff",
         marginLeft: indentLevel * 24,
         boxSizing: "border-box",
-        width: "100%",
+        width: `calc(100% - ${indentLevel * 24}px)`,
       }}
     >
       <div style={{ fontWeight: 700, marginBottom: 6 }}>Reply</div>
