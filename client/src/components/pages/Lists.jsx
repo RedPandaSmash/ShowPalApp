@@ -12,6 +12,117 @@ export default function Lists() {
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [loadingFollowed, setLoadingFollowed] = useState(false);
   const [showAllFollowed, setShowAllFollowed] = useState(false);
+  const [showsMeta, setShowsMeta] = useState({});
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const [pendingRequests, setPendingRequests] = useState(new Set());
+
+  const refreshFailedShows = () => {
+    // Clear cached null values and refetch
+    const failedIds = Object.keys(showsMeta).filter(
+      (id) => showsMeta[id] === null
+    );
+    if (failedIds.length > 0) {
+      console.log(`Refreshing ${failedIds.length} failed shows`);
+      const updatedMeta = { ...showsMeta };
+      failedIds.forEach((id) => delete updatedMeta[id]);
+      setShowsMeta(updatedMeta);
+      fetchShowsMeta(failedIds, 0, true); // Force refresh
+    }
+  };
+
+  const fetchShowsMeta = async (
+    ids = [],
+    retryCount = 0,
+    forceRefresh = false
+  ) => {
+    if (!ids || ids.length === 0) return;
+    const toFetch = forceRefresh ? ids : ids.filter((id) => !showsMeta[id]);
+    if (!forceRefresh && toFetch.length === 0) return;
+
+    // Create a request key to prevent duplicate requests
+    const requestKey = toFetch.sort().join(",");
+    const isRequestPending = pendingRequests.has(requestKey);
+
+    if (isRequestPending && !forceRefresh) {
+      console.log(`Request already pending for shows: ${toFetch.join(", ")}`);
+      return;
+    }
+
+    console.log(
+      `Fetching metadata for ${toFetch.length} shows (attempt ${
+        retryCount + 1
+      })`
+    );
+
+    // Add to pending requests
+    setPendingRequests((prev) => new Set([...prev, requestKey]));
+
+    try {
+      const res = await fetch(`http://localhost:8080/api/shows/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: toFetch }),
+      });
+      if (!res.ok) throw new Error(`batch failed with status ${res.status}`);
+      const data = await res.json();
+
+      // Use functional state update to avoid race conditions
+      setShowsMeta((prevMeta) => {
+        const next = { ...prevMeta };
+        let successCount = 0;
+        let nullCount = 0;
+
+        if (data && data.results) {
+          for (const id of toFetch) {
+            const result = data.results[id];
+            if (result) {
+              next[id] = result;
+              successCount++;
+            } else {
+              next[id] = null;
+              nullCount++;
+            }
+          }
+        }
+
+        console.log(
+          `Batch result: ${successCount} successful, ${nullCount} failed for ${toFetch.length} shows`
+        );
+        console.log("Show IDs processed:", toFetch);
+
+        return next;
+      });
+
+      // If we have failed fetches and haven't retried too many times, retry after a delay
+      if (data && data.results) {
+        const failedIds = toFetch.filter((id) => !data.results[id]);
+        if (failedIds.length > 0 && retryCount < 2) {
+          console.log(
+            `Retrying ${failedIds.length} failed shows in 2 seconds...`
+          );
+          setTimeout(() => {
+            fetchShowsMeta(failedIds, retryCount + 1);
+          }, 2000);
+        }
+      }
+    } catch (e) {
+      console.error("fetchShowsMeta error:", e);
+      // If network error and we haven't retried too many times, retry
+      if (retryCount < 2) {
+        console.log(`Network error, retrying in 3 seconds...`);
+        setTimeout(() => {
+          fetchShowsMeta(ids, retryCount + 1);
+        }, 3000);
+      }
+    } finally {
+      // Remove from pending requests
+      setPendingRequests((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(requestKey);
+        return newSet;
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchRecent = async () => {
@@ -22,6 +133,15 @@ export default function Lists() {
         const data = await res.json();
         const lists = Array.isArray(data.lists) ? data.lists : [];
         setRecentLists(lists);
+
+        // Fetch show metadata for recent lists
+        const ids = Array.from(
+          new Set(lists.flatMap((l) => (Array.isArray(l.shows) ? l.shows : [])))
+        );
+        if (ids.length > 0) {
+          console.log("Recent lists show IDs:", ids);
+          fetchShowsMeta(ids);
+        }
       } catch (e) {
         console.error("fetch recent lists", e);
         setRecentLists([]);
@@ -45,6 +165,15 @@ export default function Lists() {
         const data = await res.json();
         const lists = Array.isArray(data.lists) ? data.lists : [];
         setFollowedLists(lists);
+
+        // Fetch show metadata for followed lists
+        const ids = Array.from(
+          new Set(lists.flatMap((l) => (Array.isArray(l.shows) ? l.shows : [])))
+        );
+        if (ids.length > 0) {
+          console.log("Followed lists show IDs:", ids);
+          fetchShowsMeta(ids);
+        }
       } catch (e) {
         console.error("fetch followed lists", e);
         setFollowedLists([]);
@@ -75,7 +204,64 @@ export default function Lists() {
           paddingBottom: window.innerWidth <= 480 ? 24 : 48,
         }}
       >
-        <h2 style={{ marginTop: 0 }}>Lists by People I Follow</h2>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 8,
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>Lists by People I Follow</h2>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {Object.values(showsMeta).some((meta) => meta === null) && (
+              <button
+                onClick={refreshFailedShows}
+                style={{
+                  ...interactiveButton,
+                  padding: "4px 8px",
+                  fontSize: "0.8em",
+                  background: "#ff6b6b",
+                  color: "#fff",
+                }}
+                title="Refresh failed show metadata"
+              >
+                ↻ Refresh Failed
+              </button>
+            )}
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(
+                    `http://localhost:8080/api/shows/clear-cache`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                    }
+                  );
+                  if (res.ok) {
+                    console.log("Cache cleared successfully");
+                    // Clear client-side cache and refetch
+                    setShowsMeta({});
+                    window.location.reload();
+                  }
+                } catch (e) {
+                  console.error("Failed to clear cache:", e);
+                }
+              }}
+              style={{
+                ...interactiveButton,
+                padding: "4px 8px",
+                fontSize: "0.8em",
+                background: "#666",
+                color: "#fff",
+              }}
+              title="Clear server cache and reload"
+            >
+              🗑️ Clear Cache
+            </button>
+          </div>
+        </div>
         {!isSignedIn ? (
           <div style={{ color: "#666" }}>
             Sign in to see lists from people you follow.
@@ -167,47 +353,62 @@ export default function Lists() {
                     }}
                   >
                     {Array.isArray(list.shows) && list.shows.length > 0 ? (
-                      list.shows.slice(0, 3).map((sid) => (
-                        <div
-                          key={sid}
-                          style={{
-                            display: "flex",
-                            gap: window.innerWidth <= 480 ? 6 : 8,
-                            alignItems: "center",
-                          }}
-                          onClick={() =>
-                            (window.location.href = `/shows/${sid}`)
-                          }
-                        >
-                          <img
-                            src={`data:image/svg+xml;utf8,${encodeURIComponent(
-                              `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='90'><rect width='100%' height='100%' fill='%23ddd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%23666'>No Image</text></svg>`
-                            )}`}
-                            alt="Show poster"
-                            style={{
-                              width: window.innerWidth <= 480 ? 48 : 64,
-                              height: window.innerWidth <= 480 ? 68 : 90,
-                              objectFit: "cover",
-                              borderRadius: 6,
-                              cursor: "pointer",
-                            }}
-                          />
+                      list.shows.slice(0, 3).map((sid) => {
+                        const meta = showsMeta[sid];
+                        const title = meta
+                          ? meta.name || meta.title || sid
+                          : sid;
+                        const poster =
+                          meta &&
+                          meta.poster_path &&
+                          meta.poster_path.trim() !== ""
+                            ? `https://image.tmdb.org/t/p/w200${
+                                meta.poster_path.startsWith("/") ? "" : "/"
+                              }${meta.poster_path}`
+                            : `data:image/svg+xml;utf8,${encodeURIComponent(
+                                `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='90'><rect width='100%' height='100%' fill='%23ddd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%23666'>No Image</text></svg>`
+                              )}`;
+
+                        return (
                           <div
+                            key={sid}
                             style={{
-                              flex: 1,
-                              background: "#ffd700",
-                              padding: 6,
-                              borderRadius: 4,
+                              display: "flex",
+                              gap: window.innerWidth <= 480 ? 6 : 8,
+                              alignItems: "center",
                             }}
+                            onClick={() =>
+                              (window.location.href = `/shows/${sid}`)
+                            }
                           >
+                            <img
+                              src={poster}
+                              alt={title}
+                              style={{
+                                width: window.innerWidth <= 480 ? 48 : 64,
+                                height: window.innerWidth <= 480 ? 68 : 90,
+                                objectFit: "cover",
+                                borderRadius: 6,
+                                cursor: "pointer",
+                              }}
+                            />
                             <div
-                              style={{ cursor: "pointer", color: "#6c2eb6" }}
+                              style={{
+                                flex: 1,
+                                background: "#ffd700",
+                                padding: 6,
+                                borderRadius: 4,
+                              }}
                             >
-                              Show {sid}
+                              <div
+                                style={{ cursor: "pointer", color: "#6c2eb6" }}
+                              >
+                                {title}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div style={{ color: "#666" }}>
                         No shows in this list yet.
@@ -320,43 +521,59 @@ export default function Lists() {
                   }}
                 >
                   {Array.isArray(list.shows) && list.shows.length > 0 ? (
-                    list.shows.slice(0, 3).map((sid) => (
-                      <div
-                        key={sid}
-                        style={{
-                          display: "flex",
-                          gap: window.innerWidth <= 480 ? 6 : 8,
-                          alignItems: "center",
-                        }}
-                        onClick={() => (window.location.href = `/shows/${sid}`)}
-                      >
-                        <img
-                          src={`data:image/svg+xml;utf8,${encodeURIComponent(
-                            `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='90'><rect width='100%' height='100%' fill='%23ddd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%23666'>No Image</text></svg>`
-                          )}`}
-                          alt="Show poster"
-                          style={{
-                            width: window.innerWidth <= 480 ? 48 : 64,
-                            height: window.innerWidth <= 480 ? 68 : 90,
-                            objectFit: "cover",
-                            borderRadius: 6,
-                            cursor: "pointer",
-                          }}
-                        />
+                    list.shows.slice(0, 3).map((sid) => {
+                      const meta = showsMeta[sid];
+                      const title = meta ? meta.name || meta.title || sid : sid;
+                      const poster =
+                        meta &&
+                        meta.poster_path &&
+                        meta.poster_path.trim() !== ""
+                          ? `https://image.tmdb.org/t/p/w200${
+                              meta.poster_path.startsWith("/") ? "" : "/"
+                            }${meta.poster_path}`
+                          : `data:image/svg+xml;utf8,${encodeURIComponent(
+                              `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='90'><rect width='100%' height='100%' fill='%23ddd'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%23666'>No Image</text></svg>`
+                            )}`;
+                      return (
                         <div
+                          key={sid}
                           style={{
-                            flex: 1,
-                            background: "#ffd700",
-                            padding: 6,
-                            borderRadius: 4,
+                            display: "flex",
+                            gap: window.innerWidth <= 480 ? 6 : 8,
+                            alignItems: "center",
                           }}
+                          onClick={() =>
+                            (window.location.href = `/shows/${sid}`)
+                          }
                         >
-                          <div style={{ cursor: "pointer", color: "#6c2eb6" }}>
-                            Show {sid}
+                          <img
+                            src={poster}
+                            alt={title}
+                            style={{
+                              width: window.innerWidth <= 480 ? 48 : 64,
+                              height: window.innerWidth <= 480 ? 68 : 90,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                              cursor: "pointer",
+                            }}
+                          />
+                          <div
+                            style={{
+                              flex: 1,
+                              background: "#ffd700",
+                              padding: 6,
+                              borderRadius: 4,
+                            }}
+                          >
+                            <div
+                              style={{ cursor: "pointer", color: "#6c2eb6" }}
+                            >
+                              {title}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div style={{ color: "#666" }}>
                       No shows in this list yet.
