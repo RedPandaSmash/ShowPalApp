@@ -3,7 +3,7 @@ export async function checkIsSignedIn() {
   const token = localStorage.getItem("token");
   if (!token) return false;
   try {
-    const res = await fetch("/api/users/verify", {
+    const res = await fetch("/api/users?action=verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),

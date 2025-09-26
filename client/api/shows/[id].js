@@ -6,11 +6,14 @@ export default async function handler(req, res) {
   const token = process.env.TMDB_READ_ACCESS_TOKEN;
   const apiKey = process.env.TMDB_API_KEY;
 
-  const { id } = req.query;
+  const { id, seasonNum } = req.query;
   const { language } = req.query;
 
   try {
-    const url = new URL(`https://api.themoviedb.org/3/tv/${id}`);
+    // If seasonNum is provided, fetch season data instead of show data
+    const endpoint = seasonNum ? `tv/${id}/season/${seasonNum}` : `tv/${id}`;
+    const url = new URL(`https://api.themoviedb.org/3/${endpoint}`);
+    
     //Translates the description to the language set
     if (language) url.searchParams.set("language", language);
 
@@ -38,7 +41,7 @@ export default async function handler(req, res) {
     const data = await resp.json();
     return res.json(data);
   } catch (err) {
-    console.error("Error fetching TMDB show by ID:", err);
+    console.error("Error fetching TMDB data:", err);
     return res.status(500).json({ error: "internal server error" });
   }
 }

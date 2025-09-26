@@ -193,7 +193,7 @@ function ListDropdown({ showID }) {
       if (list.listType) {
         // Handle default list
         const res = await fetch(
-          `/api/default-lists/${list.listType}/toggle-show`,
+          `/api/default-lists?action=toggle-show&listType=${list.listType}`,
           {
             method: "POST",
             headers: {
@@ -208,7 +208,7 @@ function ListDropdown({ showID }) {
       } else {
         // Handle regular list
         const res = await fetch(
-          `/api/lists/${listId}/toggle-show`,
+          `/api/lists/${listId}?action=toggle-show`,
           {
             method: "POST",
             headers: {
@@ -634,7 +634,7 @@ export default function SpecificShow() {
     const fetchShow = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/shows/${showID}`);
+        const res = await fetch(`/api/shows?id=${showID}`);
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (!mounted) return;
@@ -660,7 +660,7 @@ export default function SpecificShow() {
       setSeasonError(null);
       try {
         const res = await fetch(
-          `/api/shows/${showID}/season/${seasonNum}`
+          `/api/shows?id=${showID}&seasonNum=${seasonNum}`
         );
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
@@ -1272,7 +1272,7 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
         toFetch.map(async (id) => {
           try {
             const res = await fetch(
-              `/api/users/${id}/username`
+              `/api/users?action=username&id=${id}`
             );
             if (!res.ok) return;
             const data = await res.json();
@@ -1313,7 +1313,7 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
       );
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `/api/reviews/${reviewId}/like`,
+        `/api/reviews/${reviewId}?action=like`,
         { method: "POST", headers: { Authorization: token } }
       );
       if (!res.ok) throw new Error("failed to toggle like");
@@ -2179,7 +2179,7 @@ function ReplyLikeAndButton({ reply, onPosted, indentLevel = 0, onOpenReply }) {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `/api/replies/${replyId}/like`,
+        `/api/replies/${replyId}?action=like`,
         { method: "POST", headers: { Authorization: token } }
       );
       if (!res.ok) throw new Error("failed");

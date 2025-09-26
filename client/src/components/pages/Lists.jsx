@@ -58,7 +58,7 @@ export default function Lists() {
     setPendingRequests((prev) => new Set([...prev, requestKey]));
 
     try {
-      const res = await fetch(`/api/shows/batch`, {
+      const res = await fetch(`/api/shows?action=batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: toFetch }),

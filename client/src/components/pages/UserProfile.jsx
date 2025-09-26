@@ -181,7 +181,7 @@ export default function UserProfile() {
     const toFetch = ids.filter((id) => !showsMeta[id]);
     if (toFetch.length === 0) return;
     try {
-      const res = await fetch(`/api/shows/batch`, {
+      const res = await fetch(`/api/shows?action=batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: toFetch }),
@@ -859,7 +859,7 @@ export default function UserProfile() {
                     const isDefaultList = editingList.isDefault;
 
                     const endpoint = isDefaultList
-                      ? `/api/default-lists/${editingList.listType}/update`
+                      ? `/api/default-lists?action=update&listType=${editingList.listType}`
                       : `/api/lists/${editingList._id}`;
 
                     const body = isDefaultList
@@ -968,7 +968,7 @@ export default function UserProfile() {
                     // Call the move API
                     const token = localStorage.getItem("token");
                     const response = await fetch(
-                      `/api/default-lists/move`,
+                      `/api/default-lists?action=move`,
                       {
                         method: "POST",
                         headers: {
@@ -1154,7 +1154,7 @@ export default function UserProfile() {
                     if (editingStatusLists.watching) {
                       promises.push(
                         fetch(
-                          `/api/default-lists/Watching/update`,
+                          `/api/default-lists?action=update&listType=Watching`,
                           {
                             method: "PUT",
                             headers: {
@@ -1171,7 +1171,7 @@ export default function UserProfile() {
                     if (editingStatusLists.finished) {
                       promises.push(
                         fetch(
-                          `/api/default-lists/Finished/update`,
+                          `/api/default-lists?action=update&listType=Finished`,
                           {
                             method: "PUT",
                             headers: {
@@ -1188,7 +1188,7 @@ export default function UserProfile() {
                     if (editingStatusLists.dropped) {
                       promises.push(
                         fetch(
-                          `/api/default-lists/Dropped/update`,
+                          `/api/default-lists?action=update&listType=Dropped`,
                           {
                             method: "PUT",
                             headers: {

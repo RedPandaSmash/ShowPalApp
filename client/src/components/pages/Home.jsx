@@ -61,7 +61,7 @@ export default function Home() {
     const fetchShows = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/shows/popular?page=1");
+        const res = await fetch("/api/shows?action=popular&page=1");
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         const items = Array.isArray(data.results)
