@@ -3,7 +3,7 @@ import Profile from "../../../lib/models/profile.model.js";
 import DefaultList from "../../../lib/models/defaultList.model.js";
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
@@ -11,6 +11,20 @@ export default async function handler(req, res) {
     await connectDB();
 
     const { userID } = req.query;
+
+    // Handle POST request for profile updates
+    if (req.method === 'POST') {
+      const { bio } = req.body;
+      
+      let profile = await Profile.findOne({ userID });
+      if (profile) {
+        profile.bio = bio;
+      } else {
+        profile = new Profile({ userID, bio });
+      }
+      await profile.save();
+      return res.json(profile);
+    }
 
     const profile = await Profile.findOne({
       userID: userID,
