@@ -63,7 +63,7 @@ function ListDropdown({ showID }) {
     try {
       // Fetch user's regular lists
       const userListsRes = await fetch(
-        `http://localhost:8080/api/lists?userID=${currentUserId}`
+        `/api/lists?userID=${currentUserId}`
       );
       if (!userListsRes.ok) throw new Error("failed to fetch user lists");
       const userListsData = await userListsRes.json();
@@ -73,7 +73,7 @@ function ListDropdown({ showID }) {
 
       // Fetch user's default lists (Watching, Finished, Dropped, Favorites)
       const defaultListsRes = await fetch(
-        `http://localhost:8080/api/default-lists/${currentUserId}`
+        `/api/default-lists/${currentUserId}`
       );
       if (!defaultListsRes.ok) throw new Error("failed to fetch default lists");
       const defaultListsData = await defaultListsRes.json();
@@ -164,7 +164,7 @@ function ListDropdown({ showID }) {
     try {
       const token = localStorage.getItem("token");
       // revert: send raw token in Authorization header (previous working behavior)
-      const res = await fetch("http://localhost:8080/api/lists", {
+      const res = await fetch("/api/lists", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token },
         body: JSON.stringify({ name, shows: [String(showID)] }),
@@ -193,7 +193,7 @@ function ListDropdown({ showID }) {
       if (list.listType) {
         // Handle default list
         const res = await fetch(
-          `http://localhost:8080/api/default-lists/${list.listType}/toggle-show`,
+          `/api/default-lists/${list.listType}/toggle-show`,
           {
             method: "POST",
             headers: {
@@ -208,7 +208,7 @@ function ListDropdown({ showID }) {
       } else {
         // Handle regular list
         const res = await fetch(
-          `http://localhost:8080/api/lists/${listId}/toggle-show`,
+          `/api/lists/${listId}/toggle-show`,
           {
             method: "POST",
             headers: {
@@ -233,7 +233,7 @@ function ListDropdown({ showID }) {
     try {
       const token = localStorage.getItem("token");
       // revert: send raw token in Authorization header
-      const res = await fetch(`http://localhost:8080/api/lists/${listId}`, {
+      const res = await fetch(`/api/lists/${listId}`, {
         method: "DELETE",
         headers: { Authorization: token },
       });
@@ -558,7 +558,7 @@ export default function SpecificShow() {
     setReviewsLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:8080/api/reviews?showID=${encodeURIComponent(showID)}`
+        `/api/reviews?showID=${encodeURIComponent(showID)}`
       );
       if (!res.ok) {
         const text = await res.text();
@@ -634,7 +634,7 @@ export default function SpecificShow() {
     const fetchShow = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:8080/api/shows/${showID}`);
+        const res = await fetch(`/api/shows/${showID}`);
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         if (!mounted) return;
@@ -660,7 +660,7 @@ export default function SpecificShow() {
       setSeasonError(null);
       try {
         const res = await fetch(
-          `http://localhost:8080/api/shows/${showID}/season/${seasonNum}`
+          `/api/shows/${showID}/season/${seasonNum}`
         );
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
@@ -1114,7 +1114,7 @@ function ReviewForm({ showID, onNewReview, refreshAuth }) {
     setSubmitting(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/api/reviews", {
+      const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token },
         body: JSON.stringify({ showID, rating, comment }),
@@ -1272,7 +1272,7 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
         toFetch.map(async (id) => {
           try {
             const res = await fetch(
-              `http://localhost:8080/api/users/${id}/username`
+              `/api/users/${id}/username`
             );
             if (!res.ok) return;
             const data = await res.json();
@@ -1313,7 +1313,7 @@ function ReviewList({ reviews, currentUserId, onRefresh }) {
       );
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `http://localhost:8080/api/reviews/${reviewId}/like`,
+        `/api/reviews/${reviewId}/like`,
         { method: "POST", headers: { Authorization: token } }
       );
       if (!res.ok) throw new Error("failed to toggle like");
@@ -1483,7 +1483,7 @@ function ReviewReplies({ reviewId, onOpenReply, onOpenChange }) {
     setLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:8080/api/replies?parentID=${encodeURIComponent(
+        `/api/replies?parentID=${encodeURIComponent(
           reviewId
         )}`
       );
@@ -1538,7 +1538,7 @@ function ReviewReplies({ reviewId, onOpenReply, onOpenChange }) {
           // Ensure replyId is a string, not an object
           const id =
             typeof replyId === "object" ? replyId._id || replyId : replyId;
-          const res = await fetch(`http://localhost:8080/api/replies/${id}`);
+          const res = await fetch(`/api/replies/${id}`);
           if (!res.ok) {
             if (res.status === 404) {
               console.warn(`Reply ${id} not found, cannot trace parent chain`);
@@ -1574,7 +1574,7 @@ function ReviewReplies({ reviewId, onOpenReply, onOpenChange }) {
           // Ensure targetId is a string
           const id =
             typeof targetId === "object" ? targetId._id || targetId : targetId;
-          const res = await fetch(`http://localhost:8080/api/replies/${id}`);
+          const res = await fetch(`/api/replies/${id}`);
           if (!res.ok) return currentPath;
           const reply = await res.json();
 
@@ -1763,7 +1763,7 @@ function RepliesList({ replies, parentReviewId, level = 0, onPosted }) {
     }));
     try {
       const res = await fetch(
-        `http://localhost:8080/api/replies?parentID=${encodeURIComponent(
+        `/api/replies?parentID=${encodeURIComponent(
           parentId
         )}`
       );
@@ -1816,7 +1816,7 @@ function RepliesList({ replies, parentReviewId, level = 0, onPosted }) {
           // Ensure targetId is a string
           const id =
             typeof targetId === "object" ? targetId._id || targetId : targetId;
-          const res = await fetch(`http://localhost:8080/api/replies/${id}`);
+          const res = await fetch(`/api/replies/${id}`);
           if (!res.ok) return currentPath;
           const reply = await res.json();
 
@@ -2179,7 +2179,7 @@ function ReplyLikeAndButton({ reply, onPosted, indentLevel = 0, onOpenReply }) {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `http://localhost:8080/api/replies/${replyId}/like`,
+        `/api/replies/${replyId}/like`,
         { method: "POST", headers: { Authorization: token } }
       );
       if (!res.ok) throw new Error("failed");
@@ -2231,7 +2231,7 @@ function ReplyForm({ parentID, parentModel, onPosted }) {
     setPosting(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/api/replies", {
+      const res = await fetch("/api/replies", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token },
         body: JSON.stringify({ parentID, parentModel, comment: text }),
@@ -2292,7 +2292,7 @@ function InlineReplyForm({
     setPosting(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/api/replies", {
+      const res = await fetch("/api/replies", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token },
         body: JSON.stringify({ parentID, parentModel, comment: text }),

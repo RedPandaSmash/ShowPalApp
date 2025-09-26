@@ -43,7 +43,7 @@ export default function ListManager({
     try {
       // Fetch user's regular lists
       const userListsRes = await fetch(
-        `http://localhost:8080/api/lists?userID=${userId}`
+        `/api/lists?userID=${userId}`
       );
       const userListsData = await userListsRes.json();
       const userLists = Array.isArray(userListsData.lists)
@@ -53,7 +53,7 @@ export default function ListManager({
 
       // Fetch user's default lists
       const defaultListsRes = await fetch(
-        `http://localhost:8080/api/default-lists/${userId}`
+        `/api/default-lists/${userId}`
       );
       const defaultListsData = await defaultListsRes.json();
       const defaultLists = Array.isArray(defaultListsData)
@@ -86,7 +86,7 @@ export default function ListManager({
     const toFetch = ids.filter((id) => !showsMeta[id]);
     if (toFetch.length === 0) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/shows/batch`, {
+      const res = await fetch(`/api/shows/batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: toFetch }),
@@ -275,7 +275,7 @@ export default function ListManager({
                       try {
                         const token = localStorage.getItem("token");
                         const res = await fetch(
-                          `http://localhost:8080/api/lists/${list._id}`,
+                          `/api/lists/${list._id}`,
                           {
                             method: "DELETE",
                             headers: { Authorization: token },
@@ -626,8 +626,8 @@ export default function ListManager({
 
                     const isDefaultList = editingList.isDefault;
                     const endpoint = isDefaultList
-                      ? `http://localhost:8080/api/default-lists/${editingList.listType}/update`
-                      : `http://localhost:8080/api/lists/${editingList._id}`;
+                      ? `/api/default-lists/${editingList.listType}/update`
+                      : `/api/lists/${editingList._id}`;
 
                     const body = isDefaultList
                       ? { shows: editingList.shows }
@@ -995,7 +995,7 @@ export default function ListManager({
                     if (editingStatusLists.watching) {
                       promises.push(
                         fetch(
-                          `http://localhost:8080/api/default-lists/Watching/update`,
+                          `/api/default-lists/Watching/update`,
                           {
                             method: "PUT",
                             headers: {
@@ -1012,7 +1012,7 @@ export default function ListManager({
                     if (editingStatusLists.finished) {
                       promises.push(
                         fetch(
-                          `http://localhost:8080/api/default-lists/Finished/update`,
+                          `/api/default-lists/Finished/update`,
                           {
                             method: "PUT",
                             headers: {
@@ -1029,7 +1029,7 @@ export default function ListManager({
                     if (editingStatusLists.dropped) {
                       promises.push(
                         fetch(
-                          `http://localhost:8080/api/default-lists/Dropped/update`,
+                          `/api/default-lists/Dropped/update`,
                           {
                             method: "PUT",
                             headers: {

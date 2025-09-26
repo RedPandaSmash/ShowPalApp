@@ -53,7 +53,7 @@ export default function Shows() {
     setLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:8080/api/shows/search?query=${encodeURIComponent(
+        `/api/shows/search?query=${encodeURIComponent(
           query
         )}&page=${searchPage}`
       );
@@ -103,7 +103,7 @@ export default function Shows() {
       setLoading(true);
       try {
         const res = await fetch(
-          `http://localhost:8080/api/shows/popular?page=${page}`
+          `/api/shows/popular?page=${page}`
         );
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();

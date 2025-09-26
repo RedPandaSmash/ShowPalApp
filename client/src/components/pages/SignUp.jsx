@@ -38,7 +38,7 @@ export default function SignUp() {
     e.preventDefault();
 
     // send API request to register user/
-    const res = await fetch("http://localhost:8080/api/users/signup", {
+    const res = await fetch("/api/users/signup", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

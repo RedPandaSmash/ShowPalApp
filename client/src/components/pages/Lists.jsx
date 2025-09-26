@@ -58,7 +58,7 @@ export default function Lists() {
     setPendingRequests((prev) => new Set([...prev, requestKey]));
 
     try {
-      const res = await fetch(`http://localhost:8080/api/shows/batch`, {
+      const res = await fetch(`/api/shows/batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: toFetch }),
@@ -128,7 +128,7 @@ export default function Lists() {
     const fetchRecent = async () => {
       setLoadingRecent(true);
       try {
-        const res = await fetch(`http://localhost:8080/api/lists`);
+        const res = await fetch(`/api/lists`);
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
         const lists = Array.isArray(data.lists) ? data.lists : [];
@@ -158,7 +158,7 @@ export default function Lists() {
       setLoadingFollowed(true);
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:8080/api/lists/followed`, {
+        const res = await fetch(`/api/lists/followed`, {
           headers: { Authorization: token },
         });
         if (!res.ok) throw new Error("failed");

@@ -117,7 +117,7 @@ export default function UserProfile() {
   const fetchProfile = async () => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${userId}`
+        `/api/profile/${userId}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch profile");
@@ -138,7 +138,7 @@ export default function UserProfile() {
     try {
       // Fetch user's regular lists
       const userListsRes = await fetch(
-        `http://localhost:8080/api/lists?userID=${userId}`
+        `/api/lists?userID=${userId}`
       );
       const userListsData = await userListsRes.json();
       const userLists = Array.isArray(userListsData.lists)
@@ -148,7 +148,7 @@ export default function UserProfile() {
 
       // Fetch user's default lists
       const defaultListsRes = await fetch(
-        `http://localhost:8080/api/default-lists/${userId}`
+        `/api/default-lists/${userId}`
       );
       const defaultListsData = await defaultListsRes.json();
       const defaultLists = Array.isArray(defaultListsData)
@@ -181,7 +181,7 @@ export default function UserProfile() {
     const toFetch = ids.filter((id) => !showsMeta[id]);
     if (toFetch.length === 0) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/shows/batch`, {
+      const res = await fetch(`/api/shows/batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: toFetch }),
@@ -204,7 +204,7 @@ export default function UserProfile() {
     setActivityLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${userId}/activity`
+        `/api/profile/${userId}/activity`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch activity");
@@ -230,7 +230,7 @@ export default function UserProfile() {
     setFollowingActivityLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${userId}/following-activity`
+        `/api/profile/${userId}/following-activity`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch following activity");
@@ -258,7 +258,7 @@ export default function UserProfile() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${userId}/follow`,
+        `/api/profile/${userId}/follow`,
         {
           method: "POST",
           headers: {
@@ -286,7 +286,7 @@ export default function UserProfile() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${userId}/follow`,
+        `/api/profile/${userId}/follow`,
         {
           method: "DELETE",
           headers: {
@@ -314,7 +314,7 @@ export default function UserProfile() {
     setSocialLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${userId}/followers`
+        `/api/profile/${userId}/followers`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch followers");
@@ -341,7 +341,7 @@ export default function UserProfile() {
     setSocialLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${userId}/following`
+        `/api/profile/${userId}/following`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch following");
@@ -368,7 +368,7 @@ export default function UserProfile() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${targetUserId}/follow`,
+        `/api/profile/${targetUserId}/follow`,
         {
           method: "POST",
           headers: {
@@ -410,7 +410,7 @@ export default function UserProfile() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/profile/${targetUserId}/follow`,
+        `/api/profile/${targetUserId}/follow`,
         {
           method: "DELETE",
           headers: {
@@ -565,7 +565,7 @@ export default function UserProfile() {
                       try {
                         const token = localStorage.getItem("token");
                         const res = await fetch(
-                          `http://localhost:8080/api/lists/${list._id}`,
+                          `/api/lists/${list._id}`,
                           {
                             method: "DELETE",
                             headers: { Authorization: token },
@@ -859,8 +859,8 @@ export default function UserProfile() {
                     const isDefaultList = editingList.isDefault;
 
                     const endpoint = isDefaultList
-                      ? `http://localhost:8080/api/default-lists/${editingList.listType}/update`
-                      : `http://localhost:8080/api/lists/${editingList._id}`;
+                      ? `/api/default-lists/${editingList.listType}/update`
+                      : `/api/lists/${editingList._id}`;
 
                     const body = isDefaultList
                       ? { shows: editingList.shows }
@@ -968,7 +968,7 @@ export default function UserProfile() {
                     // Call the move API
                     const token = localStorage.getItem("token");
                     const response = await fetch(
-                      `http://localhost:8080/api/default-lists/move`,
+                      `/api/default-lists/move`,
                       {
                         method: "POST",
                         headers: {
@@ -1154,7 +1154,7 @@ export default function UserProfile() {
                     if (editingStatusLists.watching) {
                       promises.push(
                         fetch(
-                          `http://localhost:8080/api/default-lists/Watching/update`,
+                          `/api/default-lists/Watching/update`,
                           {
                             method: "PUT",
                             headers: {
@@ -1171,7 +1171,7 @@ export default function UserProfile() {
                     if (editingStatusLists.finished) {
                       promises.push(
                         fetch(
-                          `http://localhost:8080/api/default-lists/Finished/update`,
+                          `/api/default-lists/Finished/update`,
                           {
                             method: "PUT",
                             headers: {
@@ -1188,7 +1188,7 @@ export default function UserProfile() {
                     if (editingStatusLists.dropped) {
                       promises.push(
                         fetch(
-                          `http://localhost:8080/api/default-lists/Dropped/update`,
+                          `/api/default-lists/Dropped/update`,
                           {
                             method: "PUT",
                             headers: {
@@ -1286,7 +1286,7 @@ export default function UserProfile() {
                   try {
                     const token = localStorage.getItem("token");
                     const response = await fetch(
-                      "http://localhost:8080/api/profile",
+                      "/api/profile",
                       {
                         method: "POST",
                         headers: {

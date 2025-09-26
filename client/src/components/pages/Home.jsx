@@ -61,9 +61,7 @@ export default function Home() {
     const fetchShows = async () => {
       setLoading(true);
       try {
-        const res = await fetch(
-          "http://localhost:8080/api/shows/popular?page=1"
-        );
+        const res = await fetch("/api/shows/popular?page=1");
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
         const items = Array.isArray(data.results)
@@ -81,39 +79,40 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const res = await fetch("http://localhost:8080/api/reviews");
-        if (!res.ok) throw new Error("Failed to fetch reviews");
-        const data = await res.json();
-        const recentReviews = data.reviews.slice(0, 10);
-        setReviews(recentReviews);
+    // Temporarily disabled - reviews API not yet implemented in serverless functions
+    // const fetchReviews = async () => {
+    //   try {
+    //     const res = await fetch("/api/reviews");
+    //     if (!res.ok) throw new Error("Failed to fetch reviews");
+    //     const data = await res.json();
+    //     const recentReviews = data.reviews.slice(0, 10);
+    //     setReviews(recentReviews);
 
-        // Fetch show names
-        const showIDs = [...new Set(recentReviews.map((r) => r.showID))];
-        if (showIDs.length > 0) {
-          const showRes = await fetch("http://localhost:8080/api/shows/batch", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ids: showIDs }),
-          });
-          if (showRes.ok) {
-            const showData = await showRes.json();
-            const names = {};
-            for (const id in showData.results) {
-              const show = showData.results[id];
-              names[id] = show
-                ? show.name || show.original_name || "Unknown Show"
-                : "Unknown Show";
-            }
-            setShowNames(names);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching reviews:", err);
-      }
-    };
-    fetchReviews();
+    //     // Fetch show names
+    //     const showIDs = [...new Set(recentReviews.map((r) => r.showID))];
+    //     if (showIDs.length > 0) {
+    //       const showRes = await fetch("/api/shows/batch", {
+    //         method: "POST",
+    //         headers: { "Content-Type": "application/json" },
+    //         body: JSON.stringify({ ids: showIDs }),
+    //       });
+    //       if (showRes.ok) {
+    //         const showData = await showRes.json();
+    //         const names = {};
+    //         for (const id in showData.results) {
+    //           const show = showData.results[id];
+    //           names[id] = show
+    //             ? show.name || show.original_name || "Unknown Show"
+    //             : "Unknown Show";
+    //         }
+    //         setShowNames(names);
+    //       }
+    //     }
+    //   } catch (err) {
+    //     console.error("Error fetching reviews:", err);
+    //   }
+    // };
+    // fetchReviews();
   }, []);
 
   // Determine number of items to show based on screen size
