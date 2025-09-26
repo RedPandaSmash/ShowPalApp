@@ -1,6 +1,6 @@
 import connectDB from "../../lib/mongodb.js";
 import User from "../../lib/models/user.model.js";
-import bcrypt from "bcrypt";
+import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const verifyPwd = await bcrypt.compare(password, foundUser.password);
+    const verifyPwd = await bcryptjs.compare(password, foundUser.password);
 
     if (!verifyPwd) {
       return res.status(401).json({

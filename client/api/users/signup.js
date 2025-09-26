@@ -2,7 +2,7 @@ import connectDB from "../../lib/mongodb.js";
 import User from "../../lib/models/user.model.js";
 import Profile from "../../lib/models/profile.model.js";
 import DefaultList from "../../lib/models/defaultList.model.js";
-import bcrypt from "bcrypt";
+import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 export default async function handler(req, res) {
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
     const newUser = new User({
       email,
-      password: await bcrypt.hash(password, 10),
+      password: await bcryptjs.hash(password, 10),
       username,
     });
 
