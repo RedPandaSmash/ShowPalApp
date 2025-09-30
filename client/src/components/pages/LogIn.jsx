@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   loginContainer,
@@ -35,7 +35,7 @@ export default function LogIn() {
     e.preventDefault();
 
     // send API request to register user/
-    const res = await fetch("http://localhost:8080/api/users/login", {
+    const res = await fetch("/api/users?action=login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -43,7 +43,22 @@ export default function LogIn() {
       body: JSON.stringify(form),
     });
 
-    const data = await res.json();
+    if (!res.ok) {
+      console.error("Login failed:", res.status, res.statusText);
+      alert(`Login failed: ${res.status} ${res.statusText}`);
+      return;
+    }
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (error) {
+      console.error("Failed to parse response as JSON:", error);
+      const text = await res.text();
+      console.error("Response text:", text);
+      alert("Server error: Invalid response format");
+      return;
+    }
 
     if (data.token) {
       localStorage.setItem("token", data.token);

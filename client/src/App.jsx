@@ -1,7 +1,7 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import BasicRouting from "./components/BasicRouting";
-import { BrowserRouter } from "react-router";
+import { BrowserRouter } from "react-router-dom";
 import Navbar from "./components/multiuse/Navbar";
 import SignupLoginButtons from "./components/multiuse/SignupLoginButtons";
 import LoggedInNavbar from "./components/multiuse/LoggedInNavbar";
