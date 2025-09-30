@@ -155,7 +155,6 @@ export default function Home() {
         : windowWidth <= 768
         ? "wrap"
         : "nowrap",
-    justifyContent: windowWidth <= 480 ? "center" : "center",
     overflowX: windowWidth <= 480 ? "auto" : "visible",
     padding: windowWidth <= 480 ? "0 4px" : windowWidth <= 640 ? "0 8px" : "0",
     maxWidth: "100%",
