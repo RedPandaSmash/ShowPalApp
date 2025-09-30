@@ -13,14 +13,31 @@ import replyRoutes from "./routes/reply.route.js";
 import listRoutes from "./routes/list.route.js";
 
 const PORT = process.env.PORT || 8080;
-const MONGO = process.env.MONGO;
+// Accept several common environment variable names and prefer the first one set
+const MONGO =
+  process.env.MONGO ||
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URI ||
+  process.env.DATABASE_URL;
+
+// Fail fast with a helpful message if the connection string is missing
+if (!MONGO) {
+  console.error(
+    "Missing MongoDB connection string. Set MONGO (or MONGO_URI / MONGODB_URI / DATABASE_URL) environment variable."
+  );
+  console.error(
+    "You can create a server/.env file or set the variable in your environment."
+  );
+  process.exit(1);
+}
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-console.log(MONGO);
+// Log a short, non-sensitive preview of the URI so it's easier to debug locally
+console.log("Using MongoDB URI from env (first 60 chars):", MONGO.slice(0, 60));
 
 // connect to mongodb
 const connectDB = async () => {
